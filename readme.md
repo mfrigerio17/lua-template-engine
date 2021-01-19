@@ -65,7 +65,31 @@ key: 4    value: monkey
 
 # Installing
 
-For the impatient:
+## Via LuaRocks
+
+If you can use [LuaRocks](https://luarocks.org/), then this command will install
+the package from the public repository:
+
+```
+luarocks install --local template-text
+```
+
+Alternatively, you can install from a local clone of the source repository:
+
+```sh
+git clone https://github.com/mfrigerio17/lua-template-engine.git
+cd lua-template-engine/
+luarocks --local make           # installs the module locally
+eval `luarocks path`            # need this everytime, with --local
+lua src/sample/fromreadme.lua   # try a sample
+```
+
+Avoid the `--local` switch to install the module in a system-wide Lua directory.
+
+## Manual installation
+You may simply copy the source file `template-text.lua` in a system-wide Lua
+directory.
+
 ```sh
 git clone https://github.com/mfrigerio17/lua-template-engine.git
 cd lua-template-engine/
@@ -77,19 +101,6 @@ mkdir -p /usr/local/share/lua/5.2/ && cp src/template-text.lua /usr/local/share/
 lua src/sample/fromreadme.lua
 ```
 
-You may simply copy the source file `template-text.lua` in a system-wide Lua
-directory.
-
-Alternatively, you can use [LuaRocks](https://luarocks.org/).
-From the root of the repository, type:
-
-```sh
-luarocks --local make           # installs the module locally
-eval `luarocks path`            # need this everytime, with --local
-lua src/sample/fromreadme.lua   # try a sample
-```
-
-Avoid the `--local` switch to install the module in a system-wide Lua directory.
 
 ## Installing LuaRocks
 See [the official website](https://luarocks.org/).
@@ -117,7 +128,7 @@ The template engine does not depend on any other module. Lua > 5.1 is required.
 By Marco Frigerio, heavily based on the code available in the
 [Lua-users-wiki](http://lua-users.org/wiki/SlightlyLessSimpleLuaPreprocessor)
 
-Copyright © 2020 Marco Frigerio  
+Copyright © 2020-2021 Marco Frigerio  
 All rights reserved.
 
 Released under a permissive BSD license. See the `LICENSE` file for details.
