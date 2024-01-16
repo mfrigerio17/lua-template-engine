@@ -1,30 +1,32 @@
-
-local function errHandler(e)
-  -- Try to get the number of the line of the template that caused the error,
-  -- parsing the text of the stacktrace. Note that the string here in the
-  -- matching pattern should correspond to whatever is generated in the
-  -- template_eval function, further down
-  local stacktrace = debug.traceback()
-  local linen = tonumber(stacktrace:match(".-\"local text={}...\"]:(%d+).*"))
-  return {
-    error = e,
-    lineNum = linen
-  }
-end
-
---- Evaluate a chunk of code in a constrained environment.
--- @param unsafe_code code string
--- @param optional environment table.
--- @return true or false depending on success
--- @return function or error message
-local function eval_sandbox(unsafe_code, env)
-  local env = env or {}
-  local unsafe_fun, msg = load(unsafe_code, nil, 't', env)
-  if unsafe_fun==nil then
-    return false, {loadError=true, msg=msg}
+local function getErrorAndLineNumber(lua_error_msg)
+  local match_pattern = "%[.+%]:(%d+): (.*)" -- ... :<number>: <msg>
+  local line, errormsg = lua_error_msg:match(match_pattern)
+  if line == nil then
+    return { linenum=-1, msg=lua_error_msg }
+  else
+    return { linenum=tonumber(line), msg=errormsg }
   end
-  return xpcall(unsafe_fun, errHandler)
 end
+
+
+
+--- Compiles a chunk of code and sets the environment for subsequent evaluation.
+-- @param chunk, the code as a string
+-- @param env, the environment table
+-- @return true or false depending on success
+-- @return the compiled function in case of success, a table from
+--    `getErrorAndLineNumber()` otherwise
+local function load_chunk_and_bind_env(chunk, env)
+    local compiled, msg = load(chunk, "user template", "t", env)
+    if compiled==nil then
+        return false, getErrorAndLineNumber(msg)
+    else
+        return true, compiled
+    end
+end
+
+
+
 
 local function lines(s)
         if s:sub(-1)~="\n" then s=s.."\n" end
@@ -37,6 +39,9 @@ end
 -- a suitable iterator; for example, a function returning 'ipairs(t)', where 't'
 -- is a table of strings, is a valid argument.
 local insertLines = function(text, lines, totIndent)
+  if lines == nil then
+    error("nil argument given", 2)
+  end
   local factory = lines
   if type(lines) == 'table' then
     factory = function() return ipairs(lines) end
@@ -83,16 +88,81 @@ local lineDecorator = function(generator, prefix, suffix)
   end
 end
 
---- Evaluate the given text-template into a string.
+
+local function errHandler(e)
+  -- Try to get the number of the line of the template that caused the error,
+  -- parsing the text of the stacktrace. Note that the string here in the
+  -- matching pattern should correspond to whatever is generated in the
+  -- template_eval function, further down
+  local ret = {
+    cause = getErrorAndLineNumber(e)
+  }
+  local stacktrace = debug.traceback()
+  --print(e) print(stacktrace)
+  ret.stacktrace = {}
+  for entry in stacktrace:gmatch("(.-)\n") do
+    local err = getErrorAndLineNumber(entry)
+    if err.linenum ~= -1 then
+      table.insert(ret.stacktrace, err)
+    end
+  end
+  return ret
+end
+
+local function evaluate(parsed_template, source, env, opts, env_override)
+    if env_override ~= nil then
+        for k,v in pairs(env_override) do
+            env[k] = v
+        end
+    end
+    env.table = (env.table or table)
+    env.pairs = (env.pairs or pairs)
+    env.ipairs = (env.ipairs or ipairs)
+    env.__insertLines = insertLines
+    env.__str = function(arg, arg_identifier_in_caller)
+        if arg==nil then
+            local expr_name = arg_identifier_in_caller or "<??>"
+            error(string.format("Expression '%s' is undefined in the current environment", expr_name), 2)
+        end
+        return tostring(arg)
+    end
+    local ok, ret = xpcall(parsed_template, errHandler)
+    if not ok then
+        local ln = ret.cause.linenum - 1
+        local myerror = {}
+        table.insert(myerror, "Template evaluation failed: " .. ret.cause.msg)
+        if ret.cause.linenum ~= -1 then
+            table.insert(myerror, "\tat line " .. ln ..
+                ":  >>> " .. source[ln] .. " <<<")
+        end
+        if ret.stacktrace then
+            table.insert(myerror, "Possible stacktrace:")
+            for i,entry in ipairs(ret.stacktrace) do
+                ln = entry.linenum - 1
+                if entry.linenum ~= -1 then
+                    table.insert(myerror, "\t" .. entry.msg .. " - at line " .. ln ..
+                        ":  >>> " .. source[ln] .. " <<<")
+                end
+            end
+        end
+    return false, myerror
+    end
+
+    local opts = opts or {}
+    if not (opts.returnTable or false) then
+    ret = table.concat(ret, "\n")
+    end
+    return ok, ret
+end
+
+
+--- Parse the given text-template.
 -- Regular text in the template is copied verbatim, while expressions in the
 -- form $(<var>) are replaced with the textual representation of <var>, which
 -- must be defined in the given environment.
 -- Finally, lines starting with @ are interpreted entirely as Lua code.
 --
 -- @param template the text-template, as a string
--- @param env the environment for the evaluation of the expressions in the
---        templates (if not given, 'table', 'pairs', 'ipairs' are added
---        automatically to this enviroment)
 -- @param opts non-mandatory options
 --        - indent: number of blanks to be prepended before every output line;
 --          this applies to the whole template, relative indentation between
@@ -101,7 +171,7 @@ end
 -- @return The text of the evaluated template; if the option 'returnTable' is
 --         set to true, though, the table with the sequence of lines of text is
 --         returned instead
-local function template_eval(template, env, opts)
+local function parse(template, opts, env)
 
   local opts    = opts or {}
   local indent  = string.format("%s", string.rep(' ', (opts.indent or 0) ) )
@@ -122,8 +192,10 @@ local function template_eval(template, env, opts)
   -- Every line is either the insertion in a table of a string, or a 1-to-1 copy
   --  of the code inserted in the template via the '@' character.
   local chunk = {"local text={}"}
+  local source = {}
   local lineOfCode = nil
   for line in lines(template) do
+    table.insert(source, line)
     -- Look for a '@' ignoring blanks (%s) at the beginning of the line
     -- If it's there, copy the string following the '@'
     local s,e = line:find("^%s*@")
@@ -145,7 +217,12 @@ local function template_eval(template, env, opts)
         local lastindex = 1
         local c = 1
         for text, expr, index in line:gmatch(varMatch.pattern) do
-          subexpr[c] = string.format("%q .. %s", text, varMatch.extract(expr))
+          local expression = varMatch.extract(expr)
+          if expression ~= "" then
+            subexpr[c] = string.format("%q .. __str(%s, %q)", text, expression, expression)
+          else
+            subexpr[c] = string.format("%q", text)
+          end
           lastindex = index
           c = c + 1
         end
@@ -165,44 +242,44 @@ local function template_eval(template, env, opts)
     end
     table.insert(chunk, lineOfCode)
   end
+  table.insert(chunk, "return text")
 
-  local returnTable = opts.returnTable or false
-  if returnTable then
-    table.insert(chunk, "return text")
-  else
-    -- The last line of code performs string concatenation, so that the evaluation
-    -- of the code eventually leads to a string
-    table.insert(chunk, "return table.concat(text, '\\n')")
-  end
-  --print( table.concat(chunk, '\n') )
-
-
-  env.table = (env.table or table)
-  env.pairs = (env.pairs or pairs)
-  env.ipairs = (env.ipairs or ipairs)
-  env.__insertLines = insertLines
-  local ok, ret = eval_sandbox(table.concat(chunk, '\n'), env)
+  local rendering_code = table.concat(chunk, '\n')
+  local eval_environment = env or {}
+  local ok, parsed = load_chunk_and_bind_env(rendering_code, eval_environment)
   if not ok then
-    local errMessage = "Error in template evaluation" -- default, should be overwritten
-    if ret.loadError then
-      errMessage = "Syntactic error in the loaded code: " .. ret.msg
-    else
-      local linen = ret.lineNum or -1
-      local line = "??"
-      if linen ~= -1 then line = chunk[linen] end
-      local err1 = "Template evaluation failed around this line:\n\t>>> " .. line .. " (line #" .. linen .. ")"
-      local err2 = "Interpreter error: " .. (tostring(ret.error) or "")
-      errMessage = err1 .. "\n" .. err2
+    local errormsg = "Syntax error in the template: " .. parsed.msg
+    if parsed.linenum ~= -1 then
+        errormsg = errormsg .. "\n\tat line " .. parsed.linenum ..
+            ":  >>> " .. chunk[parsed.linenum] .. " <<<"
     end
-    return false, errMessage
+    return false, errormsg
   end
-  return ok, ret
+
+  return true, {
+    env = eval_environment,
+    source = source,
+    code = chunk,
+    parsed = parsed,
+    evaluate = function(opts, env_override) return evaluate(parsed, source, eval_environment, opts, env_override) end,
+  }
 end
 
 
 
 return {
-  template_eval = template_eval,
+  parse = parse,
+  -- for backwards compatibility:
+  template_eval = function(tpl, env, opts)
+    local ok, ret = parse(tpl, opts, env)
+    if ok then
+        ok, ret = ret.evaluate(opts)
+        if not ok then
+            ret = table.concat(ret, "\n")
+        end
+    end
+    return ok,ret -- always <boolean>,<text>
+  end,
   lineDecorator = lineDecorator
 }
 
