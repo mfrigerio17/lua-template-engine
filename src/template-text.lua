@@ -119,6 +119,7 @@ local function evaluate(parsed_template, source, env, opts, env_override)
     env.pairs = (env.pairs or pairs)
     env.ipairs = (env.ipairs or ipairs)
     env.__insertLines = insertLines
+    env.__str = tostring
     local ok, ret = xpcall(parsed_template, errHandler)
     if not ok then
         local ln = ret.cause.linenum - 1
@@ -210,7 +211,12 @@ local function parse(template, opts, env)
         local lastindex = 1
         local c = 1
         for text, expr, index in line:gmatch(varMatch.pattern) do
-          subexpr[c] = string.format("%q .. %s", text, varMatch.extract(expr))
+          local expression = varMatch.extract(expr)
+          if expression ~= "" then
+            subexpr[c] = string.format("%q .. __str(%s)", text, expression)
+          else
+            subexpr[c] = string.format("%q", text)
+          end
           lastindex = index
           c = c + 1
         end
