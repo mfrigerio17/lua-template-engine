@@ -40,7 +40,7 @@ end
 -- is a table of strings, is a valid argument.
 local insertLines = function(text, lines, totIndent)
   if lines == nil then
-    error("nil argument given")
+    error("nil argument given", 2)
   end
   local factory = lines
   if type(lines) == 'table' then
@@ -119,7 +119,13 @@ local function evaluate(parsed_template, source, env, opts, env_override)
     env.pairs = (env.pairs or pairs)
     env.ipairs = (env.ipairs or ipairs)
     env.__insertLines = insertLines
-    env.__str = tostring
+    env.__str = function(arg, arg_identifier_in_caller)
+        if arg==nil then
+            local expr_name = arg_identifier_in_caller or "<??>"
+            error(string.format("Expression '%s' is undefined in the current environment", expr_name), 2)
+        end
+        return tostring(arg)
+    end
     local ok, ret = xpcall(parsed_template, errHandler)
     if not ok then
         local ln = ret.cause.linenum - 1
@@ -213,7 +219,7 @@ local function parse(template, opts, env)
         for text, expr, index in line:gmatch(varMatch.pattern) do
           local expression = varMatch.extract(expr)
           if expression ~= "" then
-            subexpr[c] = string.format("%q .. __str(%s)", text, expression)
+            subexpr[c] = string.format("%q .. __str(%s, %q)", text, expression, expression)
           else
             subexpr[c] = string.format("%q", text)
           end
