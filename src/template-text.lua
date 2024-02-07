@@ -253,11 +253,10 @@ local function parse(template, opts, env)
         errormsg = errormsg .. "\n\tat line " .. parsed.linenum ..
             ":  >>> " .. chunk[parsed.linenum] .. " <<<"
     end
-    print(errormsg)
-    return nil
+    return false, errormsg
   end
 
-  return {
+  return true, {
     env = eval_environment,
     source = source,
     code = chunk,
@@ -272,11 +271,14 @@ return {
   parse = parse,
   -- for backwards compatibility:
   template_eval = function(tpl, env, opts)
-    local ok,ret = parse(tpl, opts, env).evaluate(opts)
-    if not ok then
-        ret = table.concat(ret, "\n")
+    local ok, ret = parse(tpl, opts, env)
+    if ok then
+        ok, ret = ret.evaluate(opts)
+        if not ok then
+            ret = table.concat(ret, "\n")
+        end
     end
-    return ok,ret
+    return ok,ret -- always <boolean>,<text>
   end,
   lineDecorator = lineDecorator
 }
