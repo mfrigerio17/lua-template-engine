@@ -128,7 +128,7 @@ The template engine does not depend on any other module. Lua > 5.1 is required.
 By Marco Frigerio, heavily based on the code available in the
 [Lua-users-wiki](http://lua-users.org/wiki/SlightlyLessSimpleLuaPreprocessor)
 
-Copyright © 2020-2021 Marco Frigerio  
+Copyright © 2020-2024 Marco Frigerio  
 All rights reserved.
 
 Released under a permissive BSD license. See the `LICENSE` file for details.
