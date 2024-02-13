@@ -1,33 +1,28 @@
-local function getErrorAndLineNumber(lua_error_msg)
-  local match_pattern = "%[.+%]:(%d+): (.*)" -- ... :<number>: <msg>
-  local line, errormsg = lua_error_msg:match(match_pattern)
-  if line == nil then
-    return { linenum=-1, msg=lua_error_msg }
-  else
-    return { linenum=tonumber(line), msg=errormsg }
-  end
-end
+---
+-- This modules exposes function(s) to evaluate textual templates, that is,
+-- text which contain references to variables or expressions, or even Lua code
+-- statements. Similar programs are usually referred to as "templat[e|ing]
+-- engines" or "pre-processors" (like the examples on the Lua user-wiki this
+-- module is largely inspired from).
+--
+-- For examples demonstrating what the module does, see the readme and the
+-- `src/sample/` folder.
+--
+-- Briefly, the format for the templates is the following: regular text in the
+-- template is copied verbatim, while expressions in the form `$(<var>)` are
+-- replaced with the textual representation of `<var>`, which must be
+-- evaluatable in the given environment.
+-- Finally, lines starting with `@` are interpreted entirely as Lua code.
+-- For more information see the readme file and the samples.
+--
+-- The module's local functions are for internal use. The "exported" functions
+-- are those documented as `module.<...>`. These are the fields of the table
+-- returned by the module, which you get by `require`ing it.
+--
+-- @module template-text
+-- @author Marco Frigerio
 
-
-
---- Compiles a chunk of code and sets the environment for subsequent evaluation.
--- @param chunk, the code as a string
--- @param env, the environment table
--- @return true or false depending on success
--- @return the compiled function in case of success, a table from
---    `getErrorAndLineNumber()` otherwise
-local function load_chunk_and_bind_env(chunk, env)
-    local compiled, msg = load(chunk, "user template", "t", env)
-    if compiled==nil then
-        return false, getErrorAndLineNumber(msg)
-    else
-        return true, compiled
-    end
-end
-
-
-
-
+--- @return an iterator over the lines of the given string
 local function lines(s)
         if s:sub(-1)~="\n" then s=s.."\n" end
         return s:gmatch("(.-)\n")
@@ -57,7 +52,7 @@ end
 
 --- Decorates an existing string iteration, adding an optional prefix and suffix.
 -- The first argument must be a function returning an existing iterator
--- generator, such as a 'ipairs'.
+-- generator, such as a `ipairs`.
 -- The second and last argument are strings, both optional.
 --
 -- Sample usage:
@@ -89,18 +84,56 @@ local lineDecorator = function(generator, prefix, suffix)
 end
 
 
+--- Parses a line from a Lua error message trying to extract the line number and
+-- the error description.
+-- This function is tailored for errors that may arise when loading and
+-- executing a user template.
+-- @return A table with two fields, the linenumber and the error message. The
+--         line number is set to -1 when it could not be extracted.
+local function getErrorAndLineNumber(lua_error_msg)
+  local match_pattern = "%[.+%]:(%d+): (.*)" -- tries to match "[...]:<number>: <msg>"
+  local line, errormsg = lua_error_msg:match(match_pattern)
+  if line == nil then
+    return { linenum=-1, msg=lua_error_msg }
+  else
+    return { linenum=tonumber(line), msg=errormsg }
+  end
+end
+
+
+--- Compiles a chunk of code and sets the environment for subsequent evaluation.
+-- @param chunk, the code as a string
+-- @param env, the environment table
+-- @return true or false depending on success
+-- @return the compiled function in case of success, the table from
+--    `getErrorAndLineNumber()` otherwise
+local function load_chunk_and_bind_env(chunk, env)
+    local compiled, msg = load(chunk, "user template", "t", env)
+    if compiled==nil then
+        return false, getErrorAndLineNumber(msg)
+    else
+        return true, compiled
+    end
+end
+
+--- Private error handler to be used with xpcall.
+-- Uses `getErrorAndLineNumber()` on each line of the original error message as
+-- well as the stacktrace, in the attempt of providing good information about
+-- the problem.
+-- @return A table with two fields, 'cause' and 'stacktrace'. The first is the
+--    return value of `getErrorAndLineNumber()` invoked with the error message.
+--    The second is an array, whose elements are the return value of
+--    `getErrorAndLineNumber()` for each line of the stacktrace where a line
+--    number could be extracted.
+--
 local function errHandler(e)
-  -- Try to get the number of the line of the template that caused the error,
-  -- parsing the text of the stacktrace. Note that the string here in the
-  -- matching pattern should correspond to whatever is generated in the
-  -- template_eval function, further down
   local ret = {
     cause = getErrorAndLineNumber(e)
   }
   local stacktrace = debug.traceback()
   --print(e) print(stacktrace)
   ret.stacktrace = {}
-  for entry in stacktrace:gmatch("(.-)\n") do
+  for entry in stacktrace:gmatch("(.-)\n") do -- for every line
     local err = getErrorAndLineNumber(entry)
     if err.linenum ~= -1 then
       table.insert(ret.stacktrace, err)
@@ -109,6 +142,18 @@ local function errHandler(e)
   return ret
 end
 
+--- Executes the parsed template function. For internal use.
+-- @param parsed_template The second return value of `load_chunk_and_bind_env()`
+-- @param source The original user template text, split line by line in a table
+-- @param env The environment (table) that the template was loaded with, i.e.,
+--        the second argument of `load_chunk_and_bind_env()`
+-- @param opts A table with options:
+--        @field returnTable: if true, the return value is an array of text
+--        lines, otherwise a single string.
+-- @param env_override an optional table that overrides matching entries in the
+--        actual environment
+-- @return The text of the evaluated template, as a single string or as an
+--         array of lines
 local function evaluate(parsed_template, source, env, opts, env_override)
     if env_override ~= nil then
         for k,v in pairs(env_override) do
@@ -156,21 +201,19 @@ local function evaluate(parsed_template, source, env, opts, env_override)
 end
 
 
---- Parse the given text-template.
--- Regular text in the template is copied verbatim, while expressions in the
--- form $(<var>) are replaced with the textual representation of <var>, which
--- must be defined in the given environment.
--- Finally, lines starting with @ are interpreted entirely as Lua code.
+--- Parses the given text-template, producing and object that can be evaluated
+-- into the final text.
 --
 -- @param template the text-template, as a string
--- @param opts non-mandatory options
---        - indent: number of blanks to be prepended before every output line;
+-- @param opts non-mandatory options, a table with these fields:
+--   @param opts.indent: number of blanks to be prepended before every output line;
 --          this applies to the whole template, relative indentation between
 --          different lines is preserved
---        - xtendStyle: if true, variables are matched with this pattern "«<var>»"
--- @return The text of the evaluated template; if the option 'returnTable' is
---         set to true, though, the table with the sequence of lines of text is
---         returned instead
+--   @param opts.xtendStyle: if true, variables are matched with the pattern
+--          `«<var>»`
+-- @param env a table which shall define all the upvalues being referenced in
+--        the given template
+-- @treturn ParseResult A table about the parsed template
 local function parse(template, opts, env)
 
   local opts    = opts or {}
@@ -256,7 +299,11 @@ local function parse(template, opts, env)
     return false, errormsg
   end
 
-  return true, {
+  return true,
+  --- A parsed template "object"
+  -- @table ParseResult
+  -- @field env The environment given to `parse` by the user
+  {
     env = eval_environment,
     source = source,
     code = chunk,
@@ -266,10 +313,20 @@ local function parse(template, opts, env)
 end
 
 
+local public_api = {
 
-return {
+  --- Parses a textual template. See the docs of the local function.
+  -- @function module.parse
+  -- @see parse
   parse = parse,
-  -- for backwards compatibility:
+
+  --- Evaluates the given textual template.
+  --
+  -- Deprecated, included for backwards compatibility with the older version of
+  -- this module.
+  -- It is equivalent to call `parse()` first, and then `evaluate()` on the
+  -- result.
+  -- @function module.template_eval
   template_eval = function(tpl, env, opts)
     local ok, ret = parse(tpl, opts, env)
     if ok then
@@ -280,10 +337,14 @@ return {
     end
     return ok,ret -- always <boolean>,<text>
   end,
-  lineDecorator = lineDecorator
+
+    --- Adds prefix/suffix to the text produced by an existing iterator.
+    -- @function module.lineDecorator
+    -- @see lineDecorator
+    lineDecorator = lineDecorator
 }
 
 
-
+return public_api
 
 
