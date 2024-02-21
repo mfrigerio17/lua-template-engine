@@ -1,12 +1,17 @@
 ---
 -- This modules exposes function(s) to evaluate textual templates, that is,
 -- text which contain references to variables or expressions, or even Lua code
--- statements. Similar programs are usually referred to as "templat[e|ing]
+-- statements.
+-- For example:
+--    local engine = require "template-text"
+--    local ok, parsed = engine.parse("Hello $(whom)", {}, {whom="Marco"})
+--    ok, text = parsed.evaluate()
+--    print(text) -- Hello Marco
+-- For more examples see the readme and the `src/sample/` folder.
+--
+-- Similar programs are usually referred to as "templat[e|ing]
 -- engines" or "pre-processors" (like the examples on the Lua user-wiki this
 -- module is largely inspired from).
---
--- For examples demonstrating what the module does, see the readme and the
--- `src/sample/` folder.
 --
 -- Briefly, the format for the templates is the following: regular text in the
 -- template is copied verbatim, while expressions in the form `$(<var>)` are
@@ -15,7 +20,9 @@
 -- Finally, lines starting with `@` are interpreted entirely as Lua code.
 -- For more information see the readme file and the samples.
 --
--- The module's local functions are for internal use. The "exported" functions
+-- The module's local functions are for internal use.
+--
+-- The "public", "exported" functions
 -- are those documented as `module.<...>`. These are the fields of the table
 -- returned by the module, which you get by `require`ing it.
 --
@@ -155,8 +162,10 @@ end
 --  lines, otherwise a single string.
 -- @param env_override an optional table that overrides matching entries in the
 --  actual environment
--- @return The text of the evaluated template, as a single string or as an
---  array of lines
+-- @return A boolean flag indicating success
+-- @return In case of success, the text of the evaluated template, as a single
+--  string or as an array of lines. In case of failure, an array of lines with
+--  error information.
 -- @see load_chunk_and_bind_env
 local function evaluate(parsed_template, source, env, opts, env_override)
     if env_override ~= nil then
@@ -336,8 +345,10 @@ end
 
 local public_api = {
 
-  --- Parses a textual template. This is the main function of this module.
+  --- Parses a template. This is the main function of the module.
+  --
   -- See the docs of the local function `parse` which has the same signature.
+  -- @return `ParseResult`
   -- @function module.parse
   parse = parse,
 
