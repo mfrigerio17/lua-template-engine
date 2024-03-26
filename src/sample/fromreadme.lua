@@ -1,4 +1,4 @@
-local tpleval = require('template-text').template_eval
+local engine = require('template-text')
 
 local tpl = [[
 Hi! This is a text template!
@@ -16,13 +16,19 @@ key: $(k)    value: $(v)
 local dummyF = function(i) return i*3 end
 local dummyT = {"bear", "wolf", "shark", "monkey"}
 
-local ok, text = tpleval(tpl,
+local ok, parsed = engine.parse(tpl, {},
   { name   = "Marco",
     many   = dummyF,
     aTable = dummyT}
 )
 if not ok then
-  print("ERROR: " .. text) -- in this case text would be an error message
+    error(parsed) -- in this case 'parsed' is an error message
 else
-  print(text)
+    local text
+    ok, text = parsed.evaluate()
+    if not ok then
+        error(table.concat(text, "\n"))
+    else
+        print(text)
+    end
 end
