@@ -1,4 +1,14 @@
-local tpleval = require('template-text').template_eval
+local engine = require('template-text')
+local tpleval = function(tpl, env, opts)
+    local ok, ret = engine.parse(tpl, opts, env)
+    if ok then
+        ok, ret = ret.evaluate(opts)
+        if not ok then
+            ret = table.concat(ret, "\n")
+        end
+    end
+    return ok,ret -- always <boolean>,<text>
+end
 
 -- In the whole file we skip checking the 'ok' return value assuming everything
 -- goes fine, for brevity.
@@ -80,7 +90,7 @@ ok, tabletext = tpleval(tpl, {aTable=myTable}, {returnTable=true}) -- note the o
 tpl = [[
     ${tabletext}
 
-Note how the table expansion preserves the indentation for each line inside the
+Note how the table expansion preserves the indentation for each line of the
 table itself
 ]]
 

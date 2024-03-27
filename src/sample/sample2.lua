@@ -1,8 +1,5 @@
 local engine = require('template-text')
 
-local tpleval       = engine.template_eval
-local lineDecorator = engine.lineDecorator
-
 local test = function(env, opts)
     local tpl = [[
 Demonstrating variable substitution; the options affect which syntax is
@@ -34,28 +31,34 @@ Demonstrating decorated iterator expansion:
 
 text text text $(var2)
 $(var2) text text text
-$(var1)«var1»
+$(var1) «var1»
 ]]
 
     env.var1    = env.var1 or "__DEF1"
     env.var2    = env.var2 or "__DEF2"
     env.atable  = env.atable or {"table line1", "table line2", "", "table line4"}
     env.lineGen = function() return ipairs(env.atable) end
-    env.lineGen2= function() return lineDecorator( env.lineGen, "", ";") end -- the two strings are a prefix and suffix
+    env.lineGen2= function() return engine.lineDecorator( env.lineGen, "", ";") end -- the two strings are a prefix and suffix
 
     opts = opts or {}
-    return tpleval(tpl, env, opts)
+    local ok, res = engine.parse(tpl, opts, env)
+    if ok then
+        ok, res = res.evaluate()
+        if not ok then
+            res = table.concat(res, "\n")
+        end
+    end
+    return ok, res
 end
 
+local opts = {xtendStyle = true}  -- the variables will be those within «»
+local env  = { var1="myVar1", var2="myVar2" } -- do not pass 'atable', use the default
 
-opts = {xtendStyle = true}
-env  = { var1="myVar1", var2="myVar2" } -- do not pass 'atable', use the default
-
-ok, text = test(env, opts)
+local ok, res = test(env, opts)
 if not ok then
   print("Error: " .. res)
 else
-  print(text)
+  print(res)
 end
 
 
