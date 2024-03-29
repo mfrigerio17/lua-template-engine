@@ -1,8 +1,8 @@
 package = "template-text"
-version = "0.1.0-1"
+version = "0.1.1-1"
 source = {
   url = "git://github.com/mfrigerio17/lua-template-engine",
-  tag = "v0.1.0"
+  tag = "v0.1.1"
 }
 
 description = {
