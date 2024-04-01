@@ -1,6 +1,6 @@
 local engine = require('template-text')
 local tpleval = function(tpl, env, opts)
-    local ok, ret = engine.parse(tpl, opts, env)
+    local ok, ret = engine.tload(tpl, opts, env)
     if ok then
         ok, ret = ret.evaluate(opts)
         if not ok then
