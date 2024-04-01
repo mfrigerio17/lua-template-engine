@@ -28,7 +28,7 @@ end
 
 local function test_syntax_error(tpl, env)
     local opts = {}
-    local ok,ret = tplengine.parse(tpl, opts, env)
+    local ok,ret = tplengine.tload(tpl, opts, env)
     if ok then
         local errmsg = string.format("Test failed. Syntax error expected but not raised")
         --print( table.concat(ret.code, "\n") )
@@ -38,7 +38,7 @@ end
 
 local function test_eval_error(tpl, env, linenum)
     local opts = {}
-    local ok,ret = tplengine.parse(tpl, opts, env)
+    local ok,ret = tplengine.tload(tpl, opts, env)
     local erromsg
     if not ok then
         errmsg = string.format("Test failed. Unexpected syntax error: %s", ret)
@@ -78,6 +78,9 @@ test_basic("$(var1)", "value", {var1="value"})
 test_basic("Text $(v) interleaved", "Text EXTRA interleaved", {v="EXTRA"})
 test_basic("Function $(f(6) + f(2))", "Function 40", {f=function(x) return x*x end})
 
+
+
+
 test_basic_xtend("basic", "basic")
 test_basic_xtend("$", "$")
 test_basic_xtend("«»", "")
@@ -104,7 +107,8 @@ $(i) $(v)
 ]], [[
 1 wolf
 2 dog
-3 chicken]]
+3 chicken
+]]
 )
 
 test_basic("${myTable}", [[line1

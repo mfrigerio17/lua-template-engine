@@ -41,7 +41,7 @@ $(var1) «var1»
     env.lineGen2= function() return engine.lineDecorator( env.lineGen, "", ";") end -- the two strings are a prefix and suffix
 
     opts = opts or {}
-    local ok, res = engine.parse(tpl, opts, env)
+    local ok, res = engine.tload(tpl, opts, env)
     if ok then
         ok, res = res.evaluate()
         if not ok then
