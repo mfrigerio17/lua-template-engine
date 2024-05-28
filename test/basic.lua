@@ -52,12 +52,17 @@ local function test_eval_error(tpl, env, linenum)
     else
         --print(table.concat(ret, "\n"))
         if linenum ~= -1 then -- -1 signals not to try to find the line number
-            local found = string.find(ret[2], "line " .. linenum)
+            -- Look for the expected error message, containing the line number
+            -- It is expected to be in the second line of the error table
+            local found = string.find(ret[2], ":" .. linenum)
             if found == nil then
-                errmsg = string.format([[Test failed: unexpected line number (%d expected) for the template error.
-    Returned error msg:
-    %s]], linenum, table.concat(ret, "\n"))
-                error(errmsg)
+                errmsg = string.format(
+[[
+Test failed: unexpected line number (%d expected) in the error message.
+
+-- Returned error message: --
+%s]], linenum, table.concat(ret, "\n"))
+                error(errmsg, 2)
             end
         end
     end
