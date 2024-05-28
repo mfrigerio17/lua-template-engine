@@ -107,7 +107,8 @@ local function getErrorAndLineNumber(lua_error_msg)
   local match_pattern = "%[.+%]:(%d+): (.*)" -- tries to match "[...]:<number>: <msg>"
   local line, errormsg = lua_error_msg:match(match_pattern)
   if line == nil then
-    return { linenum=-1, msg=lua_error_msg }
+    errormsg = string.gsub(lua_error_msg, "^[%s]+", "") -- remove blanks at the beginning
+    return { linenum=-1, msg=errormsg }
   else
     return { linenum=tonumber(line), msg=errormsg }
   end
@@ -132,14 +133,19 @@ local function errHandler(e)
     cause = getErrorAndLineNumber(e),
     stacktrace = {}
   }
-  local stacktrace = debug.traceback()
+  -- get the Lua stacktrace text, but remove the first line
+  local stacktrace = string.gsub(debug.traceback(), "stack traceback:\n", "")
   --print("-----")print(e) print(stacktrace)print("------")
 
   for entry in stacktrace:gmatch("(.-)\n") do -- for every line
-    local err = getErrorAndLineNumber(entry)
-    if err.linenum ~= -1 then
-      table.insert(ret.stacktrace, err)
+    if string.find(entry, "xpcall") then
+      -- we care about errors in the evaluation of the template, that is
+      -- anything that happened inside the call to xpcall. Therefore we
+      -- do not care about the stacktrace up to xpcall itself.
+      break
     end
+    local err = getErrorAndLineNumber(entry)
+    table.insert(ret.stacktrace, err)
   end
   return ret
 end
@@ -173,7 +179,7 @@ local function build_error_trace(trace, expanded_template, error_line_num, inden
     --tp(expanded_template.line_of_code_to_source)
 
     if type(target) == "number" then -- it is a normal line number, referring to the source
-        _put("at line " .. target .. ":  >>> " .. expanded_template.source[target] .. " <<<")
+        _put("[your template]:" .. target .. ":  >>> " .. expanded_template.source[target] .. " <<<")
     else -- it is a reference to an included template
         local included = expanded_template.included[target]
         if included == nil then
@@ -230,13 +236,19 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         local myerror = {}
         table.insert(myerror, "Template evaluation failed: " .. ret.cause.msg)
         if ret.cause.linenum ~= -1 then
-            build_error_trace(myerror, template, ret.cause.linenum)
+            build_error_trace(myerror, template, ret.cause.linenum, "  ")
         end
         if ret.stacktrace then
             table.insert(myerror, "Possible stacktrace:")
             for i,entry in ipairs(ret.stacktrace) do
+                -- If there is a line number, the entry refers to the
+                -- user template itself. We then use the function that
+                -- tracks the error through template nesting.
+                -- Otherwise, we just copy the original message
                 if entry.linenum ~= -1 then
-                    build_error_trace(myerror, template, entry.linenum)
+                    build_error_trace(myerror, template, entry.linenum, "  ")
+                else
+                    table.insert(myerror, "  "..entry.msg)
                 end
             end
         end
