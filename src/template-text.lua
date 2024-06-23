@@ -263,6 +263,15 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
 end
 
 
+local function parse_slashes_string(slashes)
+    local slashes_count = string.len(slashes)
+    return {
+        count          = slashes_count,
+        actual_chars   = string.rep("\\", slashes_count//2),
+        escaping_active = (slashes_count % 2 == 1),
+    }
+end
+
 --- Generates the rendering code from a user template.
 --
 -- This is the function that "implements the syntax" of this template
@@ -275,12 +284,12 @@ local function expand(template, opts, included_templates)
     -- Define the matching pattern for the variables, depending on options.
     -- The matching pattern reads in general as: <text><expr to capture><string position>
     local varMatch = {
-      pattern = "(.-)$(%b())()",
-      extract = function(expr) return expr:sub(2,-2) end
+        pattern = "(.-)([\\]*)($(%b()))()",
+        extract_argument = function(dollar_argument_match) return dollar_argument_match:sub(2,-2) end
     }
     if opts.xtendStyle then
-      varMatch.pattern = "(.-)«(.-)»()"
-      varMatch.extract = function(expr) return expr end
+      varMatch.pattern = "(.-)([\\]*)(«(.-)»)()"
+      varMatch.extract_argument = function(brackets_argument_match) return brackets_argument_match end
     end
 
     -- Generate a line of code for each line in the input template.
@@ -309,13 +318,23 @@ local function expand(template, opts, included_templates)
         -- This is the only case where one source line introduces (in general)
         -- multiple lines of code.
         do
-          local includeIndent, includedName = line:match("^([%s]*)$<(.+)>[%s]*$")
+          local includeIndent, slashes, includedName = line:match("^([%s]*)(\\*)$<(.+)>[%s]*$")
           -- Note that the pattern is greedy (+), because template inclusion
           -- is anyway meant to be the only non-blank expression on the
           -- line. Also, we match anything (.) because the token will be
           -- used as a key in a table, and a key in lua can be any string
 
           if includedName ~= nil then
+              slashes = parse_slashes_string(slashes)
+              if slashes.count > 0 then
+              -- note how we do not even need to check if there is an active slash
+              -- quoting the $, because the mere presence of _any_ characters before
+              -- $<> implies (according to our specs) that there is no match
+                  lineOfCode = string.format("table.insert(text, %q)",
+                      includeIndent .. slashes.actual_chars .. "$<" .. includedName .. ">")
+                  goto line_parsed
+              end
+
               if included_templates[includedName] == nil then
                   error("Referenced template '".. includedName .. "' was not given in the included templates parameter ")
               end
@@ -344,15 +363,23 @@ local function expand(template, opts, included_templates)
 
         -- TABLE inclusion
         -- Look for the specials '${..}', which must be alone in the line
+        -- Preserve the indentation before '${..}' in the original template.
         do
-          local tableIndent, tableVarName = line:match("^([%s]*)${(.*)}[%s]*$")
+          local tableIndent, slashes, tableVarName, trailingSpace = line:match("^([%s]*)(\\*)${(.*)}([%s]*)$")
           if tableVarName ~= nil then
-              -- Preserve the indentation used for the "${..}" in the original template.
-              -- "Sum" it to the global indentation passed here as an option.
-              if tableVarName == "" then
+              slashes = parse_slashes_string(slashes)
+              if slashes.count > 0 then
+              -- same as for template inclusion, the sole fact that there
+              -- are some characters before the $, means no expansion.
+              -- Thus we copy the line as it is, including trailing space
+                  lineOfCode = string.format("table.insert(text, %q)",
+                      indent .. tableIndent .. slashes.actual_chars .. "${" .. tableVarName .. "}" .. trailingSpace)
+              elseif tableVarName == "" then
+                  -- we have an empty argument, i.e. '${}' - preserve the indentation
                   lineOfCode = string.format("table.insert(text, %q)", indent .. tableIndent)
               else
-                  lineOfCode = string.format("__insertLines(text, %s, %q)", tableVarName, indent..tableIndent)
+                  lineOfCode = string.format("__insertLines(text, %s, %q)",
+                      tableVarName, indent..tableIndent)
               end
               goto line_parsed
           end
@@ -368,18 +395,25 @@ local function expand(template, opts, included_templates)
           local lastindex = 1
           local c = 1
           local expression = nil
-          for text, expr, index in line:gmatch(varMatch.pattern) do
-            expression = varMatch.extract(expr)
-            if expression ~= "" then
-              subexpr[c] = string.format("%q .. __str(%s, %q)", text, expression, expression)
-              -- we store the match as string '"<text>" .. __str(<expr>, "<expr>")'
-              -- note that <text> may be empty.
-            else
-              -- there was a match, but an empty expression, like 'bla bla $()'
-              subexpr[c] = string.format("%q", text)
-            end
-            lastindex = index
-            c = c + 1
+          for text, slashes, expr, argument, index in line:gmatch(varMatch.pattern) do
+              slashes = parse_slashes_string(slashes)
+              -- append the '\' inserted by the user:
+              text = text .. slashes.actual_chars
+
+              -- extract the evaluatable expression, as in "$(<this one>)" or "«<this one>»"
+              expression = varMatch.extract_argument(argument)
+              if slashes.escaping_active then
+                  subexpr[c] = string.format("%q", text .. expr)
+              elseif expression ~= "" then
+                  subexpr[c] = string.format("%q .. __str(%s, %q)", text, expression, expression)
+                  -- we store the match as string '"<text>" .. __str(<expr>, "<expr>")'
+                  -- note that <text> may be empty.
+              else
+                  -- there was a match, but an empty expression, like 'bla bla $()'
+                  subexpr[c] = string.format("%q", text)
+              end
+              lastindex = index
+              c = c + 1
           end
           if c > 1 then
             -- Add the remaining part of the line (no further variable)
@@ -391,7 +425,7 @@ local function expand(template, opts, included_templates)
             -- indentation if it is not empty.
             expression = table.concat(subexpr, ' .. ')
             if indent ~= "" then
-              expression = string.format("%q", indent) .. ' .. ' .. expression
+              expression = string.format("%q .. %s", indent, expression)
             end
           else
             -- No match of any '$()', thus we just add the whole line

@@ -1,0 +1,7 @@
+Bug to solve:
+
+the pattern match for $<> cannot be restrictive on the content between
+the brackets, because if the $ is quoted, then the user should be able
+to have whatever he wants, like
+
+   \$< whatever $ < > aa >
