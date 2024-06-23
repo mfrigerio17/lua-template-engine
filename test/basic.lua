@@ -9,7 +9,7 @@ local function __check(ok, ret, expected)
         error(errmsg)
     end
     if not (expected == ret) then
-        local errmsg = string.format("Test failed: %q is not the same as %q", expected, ret)
+        local errmsg = string.format("Test failed: '%s' (expected) is not the same as '%s'", expected, ret)
         error(errmsg)
     end
 end
@@ -87,6 +87,22 @@ test_basic("AAAA", "    AAAA", {}, {indent=4})
 test_basic("$(var1)  $(var2) ", "    11  22 ", {var1=11,var2=22}, {indent=4})
 
 
+-- Escaping of the replacement fields '$(..)'
+-- Note the use of Lua's string literals with '[[', which relieve us
+--   from escaping the slashes themselves, which would make it very
+--   confusing
+test_basic([[Escaped dollar: \$(var)]], "Escaped dollar: $(var)")
+test_basic([[Escaped dollar: \$()]], "Escaped dollar: $()")
+test_basic([[Escaped slash: \\$()]], [[Escaped slash: \]])
+test_basic([[\\$("text")]], [[\text]])
+-- a slash does not need to be escaped when it does not precede the $
+test_basic([[aaaa\bbbb]], [[aaaa\bbbb]])
+test_basic([[ \\$(33)\ ]], [[ \33\ ]])
+test_basic([[\$(var)]], [[$(var)]])
+test_basic([[aaa $(var) \$(var) bbb]], [[aaa 42 $(var) bbb]], {var=42})
+test_basic([[\$(var) --- $(var)]], [[    $(var) --- 42]], {var=42}, {indent=4})
+
+
 -- TABLE EXPANSION -----------------------------------------------------
 -- Empty table expansion should preserve the blanks
 test_basic("${}", "")
@@ -98,6 +114,16 @@ test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
 test_basic("${nest.ed}", "a single line", { nest={ed={"a single line"}} })
 test_basic("${f()}", "a single line", { f= function() return {"a single line"} end })
 
+-- Escaping table expansion preserves the original line, blanks included
+test_basic([[\${table}]], "${table}")
+test_basic([[  \${table}]], "  ${table}")
+test_basic([[\${table}  ]], "${table}  ")
+
+-- The slash here has no effect, because the ${} is not special in the
+--  first place, being NOT alone in the line
+test_basic([[Apparently escaped: \${table}]], [[Apparently escaped: \${table}]])
+
+test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
 
 
 -- Template inclusion only works with one name per line
@@ -109,6 +135,21 @@ test_basic("$<inc1> $<inc2>  ", "$<inc1> $<inc2>  ")
 -- The special '$' is not allowed in the template name, thus this is
 --  also not a match
 test_basic("$<aaa$aaa>", "$<aaa$aaa>")
+
+
+-- this is explicit escaping of $, which shall result in verbatim copy
+test_basic([[\$<included>]], "$<included>")
+-- when quoting $, any char sequence should be allowed
+test_basic([[    \$< aa <> >]], "    $< aa <> bb $ >")
+
+-- this is escaping of slash itself, which result in a single slash to
+--  be rendered. THEN, because there are non-blank characters before the
+--  $<>, expansion does not take place (our specs say that template
+--  inclusion must be alone on the line)
+test_basic([[\\$<included>]], [[\$<included>]])
+
+-- this escapes a slash, and explicitly escapes the $ too
+test_basic([[\\\$<included>]], [[\$<included>]])
 
 
 
@@ -124,6 +165,13 @@ test_basic_xtend("«'str'»", "str")
 test_basic_xtend("«var1»", "value", {var1="value"})
 test_basic_xtend("Text «v» interleaved", "Text EXTRA interleaved", {v="EXTRA"})
 test_basic_xtend("Function «f(6) + f(2)»", "Function 40", {f=function(x) return x*x end})
+
+test_basic_xtend([[Escaped: \«var»]], "Escaped: «var»")
+test_basic_xtend([[Escaped: \«»]], "Escaped: «»")
+test_basic_xtend([[Escaped slash: \\«»]], [[Escaped slash: \]])
+test_basic_xtend([[Escaped slash: \\«2*5»]], [[Escaped slash: \10]])
+
+test_basic_xtend([[this slash \ is not in escaping anything]], [[this slash \ is not in escaping anything]])
 
 test_basic("@", "")
 test_basic(" @", "")
