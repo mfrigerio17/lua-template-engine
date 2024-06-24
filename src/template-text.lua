@@ -309,7 +309,7 @@ local function expand(template, opts, included_templates)
         -- This is the only case where one source line introduces (in general)
         -- multiple lines of code.
         do
-          local includeIndent, includedName = line:match("^([%s]*)$<([^$<>]-)>[%s]*$")
+          local includeIndent, includedName = line:match("^([%s]*)$<([%w_]-)>[%s]*$")
           if includedName ~= nil then
               if included_templates[includedName] == nil then
                   error("Referenced template '".. includedName .. "' was not given in the included templates parameter ")
@@ -340,7 +340,7 @@ local function expand(template, opts, included_templates)
         -- TABLE inclusion
         -- Look for the specials '${..}', which must be alone in the line
         do
-          local tableIndent, tableVarName = line:match("^([%s]*)${(.-)}[%s]*$")
+          local tableIndent, tableVarName = line:match("^([%s]*)${([^{}]-)}[%s]*$")
           if tableVarName ~= nil then
               -- Preserve the indentation used for the "${..}" in the original template.
               -- "Sum" it to the global indentation passed here as an option.

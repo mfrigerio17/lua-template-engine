@@ -84,6 +84,19 @@ test_basic("Text $(v) interleaved", "Text EXTRA interleaved", {v="EXTRA"})
 test_basic("Function $(f(6) + f(2))", "Function 40", {f=function(x) return x*x end})
 
 
+-- TABLE EXPANSION -----------------------------------------------------
+-- Empty table expansion should preserve the blanks
+test_basic("${}", "")
+test_basic("${}  ", "  ")
+test_basic("  ${}", "  ")
+test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
+
+-- any valid Lua expression that evaluates to a table should work
+test_basic("${nest.ed}", "a single line", { nest={ed={"a single line"}} })
+test_basic("${f()}", "a single line", { f= function() return {"a single line"} end })
+
+
+
 -- Template inclusion only works with one name per line
 -- Having multiple ones is simply not a match of any rule, and shall
 --  result in a verbatim copy of the text
