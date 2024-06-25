@@ -397,8 +397,15 @@ local function expand(template, opts, included_templates)
             -- No match of any '$()', thus we just add the whole line
             -- Note that we can do string concatenation now and not defer it to
             -- evaluation time (meaning we create '"<indent> <line>"' rather
-            -- than '"<indent>" .. "<line>"', as we do above)
-            expression = string.format("%q", indent .. line)
+            -- than '"<indent>" .. "<line>"', as we do above).
+            -- However, if the line itself is empty, we do not even use
+            -- the indentation, to avoid inserting lines that contain
+            -- only blanks. TODO this may be controllable by an option
+              if line == "" then
+                  expression = [[""]]
+              else
+                  expression = string.format("%q", indent .. line)
+              end
           end
 
           lineOfCode = "table.insert(text, " .. expression .. ")"

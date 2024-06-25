@@ -14,8 +14,8 @@ local function __check(ok, ret, expected)
     end
 end
 
-local function test_basic(tpl, expected, env)
-    local opts = {}
+local function test_basic(tpl, expected, env, opts)
+    local opts = opts or {}
     local ok,ret = tplengine.template_eval(tpl, env, opts)
     __check(ok, ret, expected)
 end
@@ -83,6 +83,9 @@ test_basic("$(var1)", "0.123", {var1=0.123})
 test_basic("$(var1)", "value", {var1="value"})
 test_basic("Text $(v) interleaved", "Text EXTRA interleaved", {v="EXTRA"})
 test_basic("Function $(f(6) + f(2))", "Function 40", {f=function(x) return x*x end})
+
+test_basic("AAAA", "    AAAA", {}, {indent=4})
+test_basic("$(var1)  $(var2) ", "    11  22 ", {var1=11,var2=22}, {indent=4})
 
 
 -- TABLE EXPANSION -----------------------------------------------------
