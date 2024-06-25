@@ -119,7 +119,40 @@ $(var1) value1
 
 
 
+local test5 = {
+    id = "test5",
+    desc = "test the indentation option",
+    tpl =
+[[
+Lorem ipsum dolor sit amet
+Lorem $(ipsum) dolor $(sit) amet
+
+@ for i,word in ipairs(words) do
+$(word)
+@ end
+]],
+    expected =
+[[
+   Lorem ipsum dolor sit amet
+   Lorem ipsum dolor sit amet
+
+   Lorem
+   ipsum
+   dolor
+   sit
+   amet
+]],
+    env = {
+        ipsum = "ipsum",
+        sit = "sit",
+        words = {"Lorem", "ipsum", "dolor", "sit", "amet"},
+        phrase = "Lorem ipsum dolor sit amet",
+    },
+    opts = {indent=3}
+}
+
 dotest(test1)
 dotest(test2)
 dotest(test3)
 dotest(test4)
+dotest(test5)
