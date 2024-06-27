@@ -144,7 +144,12 @@ local function errHandler(e)
   return ret
 end
 
---- Constructs the error trace, a sequence or error messages.
+--- Recursively constructs the error trace, a sequence or error messages.
+--
+-- Recursion is used due to the template inclusion feature: this
+-- function tries to trace back the source of the error even in the case
+-- of nested templates, at arbitrary depth (e.g. template t1 includes t2
+-- which includes t3, ..., tn, and the error is in tn).
 --
 -- @param trace The table holding the sequence (array) of messages
 -- @param expanded_template The `ExpandedTemplate` table in which the error
@@ -169,6 +174,15 @@ local function build_error_trace(trace, expanded_template, error_line_num, inden
 
     if type(target) == "number" then -- it is a normal line number, referring to the source
         _put("at line " .. target .. ":  >>> " .. expanded_template.source[target] .. " <<<")
+    else -- it is a reference to an included template
+        local included = expanded_template.included[target]
+        if included == nil then
+            _put("Internal error: could not find the data of included template '" .. target .. "'")
+            return
+        end
+        _put("in template '"..target.."' included at line "..
+          included.at_line .. ":  >>> " .. expanded_template.source[included.at_line] .. " <<<")
+        build_error_trace(trace, included.template, error_line_num - included.first_code_line + 1, indent.."  ")
     end
 end
 
@@ -241,9 +255,10 @@ end
 --
 -- This is the function that "implements the syntax" of this template
 -- engine.
-local function expand(template, opts)
+local function expand(template, opts, included_templates)
     local opts   = opts or {}
     local indent = string.rep(' ', (opts.indent or 0))
+    local included_templates = included_templates or {}
 
     -- Define the matching pattern for the variables, depending on options.
     -- The matching pattern reads in general as: <text><expr to capture><string position>
@@ -276,6 +291,43 @@ local function expand(template, opts)
         if s then
             lineOfCode = line:sub(e+1)
             goto line_parsed
+        end
+
+        -- INCLUDED templates
+        -- This is the only case where one source line introduces (in general)
+        -- multiple lines of code.
+        do
+          local includeIndent, includedName = line:match("^([%s]*)$<(.+)>[%s]*$")
+          -- Note that the pattern is greedy (+), because template inclusion
+          -- is anyway meant to be the only non-blank expression on the
+          -- line. Also, we match anything (.) because the token will be
+          -- used as a key in a table, and a key in lua can be any string
+
+          if includedName ~= nil then
+              if included_templates[includedName] == nil then
+                  error("Referenced template '".. includedName .. "' was not given in the included templates parameter ")
+              end
+              local options = {}
+              for k,v in pairs(opts) do options[k]=v end -- shallow table copy
+              options.indent = (opts.indent or 0) + string.len(includeIndent)
+              local expanded = expand(included_templates[includedName], options, included_templates)
+              table.insert(chunk, "-- start included template '" ..includedName.. "'")
+              local current_line_num = #chunk
+              included[includedName] = {
+                  name = includedName,
+                  template = expanded,
+                  at_line = #source,
+                  first_code_line = current_line_num + 1
+              }
+              -- append the code of the included template
+              -- note that we must skip the first and last line
+              for i = 1, #expanded.code-2 do
+                  table.insert(chunk, expanded.code[i+1])
+                  line_of_code_to_source[current_line_num+i] = includedName
+              end
+              lineOfCode = "-- finish included template '" ..includedName.. "'"
+              goto line_parsed
+          end
         end
 
         -- TABLE inclusion
@@ -383,6 +435,8 @@ end
 --   `«<var>»` - instead of the default `$(<var>)`
 -- @param env A table which shall define all the upvalues being referenced in
 --   the given template
+-- @param included_templates A by-name map of the templates that are
+--   included by `template`. Optional.
 --
 -- @return A boolean indicating success/failure (true/false).
 -- @return In case of success, a table `LoadResult` whose primary field is a
@@ -392,8 +446,8 @@ end
 --
 -- This function internally calls `expand`() and then Lua's `load`().
 --
-local function tload(template, opts, env)
-    local expanded = expand(template, opts)
+local function tload(template, opts, env, included_templates)
+    local expanded = expand(template, opts, included_templates)
     local eval_env = env or {}
 
     local compiled, msg = load(table.concat(expanded.code, "\n"), "user template", "t", eval_env)
