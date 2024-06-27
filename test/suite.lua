@@ -79,6 +79,16 @@ test_basic("Text $(v) interleaved", "Text EXTRA interleaved", {v="EXTRA"})
 test_basic("Function $(f(6) + f(2))", "Function 40", {f=function(x) return x*x end})
 
 
+-- Template inclusion only works with one name per line
+-- Having multiple ones is simply not a match of any rule, and shall
+--  result in a verbatim copy of the text
+test_basic("$<inc1> $<inc2>", "$<inc1> $<inc2>")
+test_basic("$<inc1> $<inc2>  ", "$<inc1> $<inc2>  ")
+
+-- The special '$' is not allowed in the template name, thus this is
+--  also not a match
+test_basic("$<aaa$aaa>", "$<aaa$aaa>")
+
 
 
 test_basic_xtend("basic", "basic")
