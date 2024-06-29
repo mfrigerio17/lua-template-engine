@@ -89,3 +89,36 @@ case = {
 }
 
 test_common.dotest(engine, case)
+
+
+-- -------------------------------------------------------------------------- --
+
+master = [[
+Only a single template can be included per line. Thus, this one
+
+$<looks_like> $<two_of_them>
+
+will actually look for the template named "looks_like> $<two_of_them"
+]]
+
+case = {
+    id = "inclusion_test_3",
+    desc = "the pattern match for the included template is greedy",
+    tpl  = master,
+    env  = {},
+    opts = {},
+    included = {["looks_like> $<two_of_them"] = [[
+content of the
+included template]]},
+    expected = [[
+Only a single template can be included per line. Thus, this one
+
+content of the
+included template
+
+will actually look for the template named "looks_like> $<two_of_them"
+]]
+}
+
+test_common.dotest(engine, case)
+

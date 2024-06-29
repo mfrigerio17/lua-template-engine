@@ -126,21 +126,13 @@ test_basic([[Apparently escaped: \${table}]], [[Apparently escaped: \${table}]])
 test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
 
 
--- Template inclusion only works with one name per line
--- Having multiple ones is simply not a match of any rule, and shall
---  result in a verbatim copy of the text
-test_basic("$<inc1> $<inc2>", "$<inc1> $<inc2>")
-test_basic("$<inc1> $<inc2>  ", "$<inc1> $<inc2>  ")
-
--- The special '$' is not allowed in the template name, thus this is
---  also not a match
-test_basic("$<aaa$aaa>", "$<aaa$aaa>")
-
+-- TEMPLATE INCLUSION ----------------------------------------------------------
 
 -- this is explicit escaping of $, which shall result in verbatim copy
 test_basic([[\$<included>]], "$<included>")
--- when quoting $, any char sequence should be allowed
-test_basic([[    \$< aa <> >]], "    $< aa <> bb $ >")
+
+-- when quoting $, any char sequence is allowed and simply gets copied
+test_basic([[    \$< aa <> bb $ >]], "    $< aa <> bb $ >")
 
 -- this is escaping of slash itself, which result in a single slash to
 --  be rendered. THEN, because there are non-blank characters before the

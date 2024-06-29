@@ -318,7 +318,7 @@ local function expand(template, opts, included_templates)
         -- This is the only case where one source line introduces (in general)
         -- multiple lines of code.
         do
-          local includeIndent, slashes, includedName = line:match("^([%s]*)(\\*)$<([%w_]-)>[%s]*$")
+          local includeIndent, slashes, includedName = line:match("^([%s]*)(\\*)$<(.+)>[%s]*$")
           if includedName ~= nil then
               slashes = parse_slashes_string(slashes)
               if slashes.count > 0 then
