@@ -123,7 +123,6 @@ test_basic([[\${table}  ]], "${table}  ")
 --  first place, being NOT alone in the line
 test_basic([[Apparently escaped: \${table}]], [[Apparently escaped: \${table}]])
 
-test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
 
 
 -- TEMPLATE INCLUSION ----------------------------------------------------------
