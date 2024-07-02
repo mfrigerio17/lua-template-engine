@@ -28,12 +28,13 @@ end
 
 local function test_syntax_error(tpl, env)
     local opts = {}
-    local ok,ret = tplengine.tload(tpl, opts, env)
+    local ok,ret,expanded = tplengine.tload(tpl, opts, env)
     if ok then
         local errmsg = string.format("Test failed. Syntax error expected but not raised")
         --print( table.concat(ret.code, "\n") )
         error(errmsg)
     end
+    return ret, expanded
 end
 
 local function test_eval_error(tpl, env, linenum)
@@ -79,6 +80,28 @@ test_basic("Text $(v) interleaved", "Text EXTRA interleaved", {v="EXTRA"})
 test_basic("Function $(f(6) + f(2))", "Function 40", {f=function(x) return x*x end})
 
 
+-- TABLE EXPANSION -----------------------------------------------------
+-- Empty table expansion should be allowed
+test_basic("${}", "")
+-- leading blanks must be preserved, that is (intended) indentation
+test_basic("  ${}", "  ")
+test_basic("	${}", "	") -- this is a TAB
+-- trailing space is dropped, does not make much sense after a table inclusion
+test_basic("${}  ", "")
+
+test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
+
+-- any valid Lua expression that evaluates to a table should work
+test_basic("${nest.ed}", "a single line", { nest={ed={"a single line"}} })
+test_basic("${f()}", "a single line", { f= function() return {"a single line"} end })
+
+-- This will casuse a syntax error because it will use the identifier "aa ${bb" !!
+-- Only one table-expansion per line is allowed
+test_syntax_error("${aa} ${bb}", {}, 1)
+
+-- This is nasty, but it is technically legal - we may want not to
+--  support something like this
+test_basic([[  ${lookup["${}"]}  ]], "  one line", {lookup={ ["${}"] = {"one line"} } })
 
 
 test_basic_xtend("basic", "basic")
@@ -142,5 +165,4 @@ test_eval_error([[
 @for i,v in ipairs(undefined) do
 $(v)
 @end]], {}, -1)
-
 
