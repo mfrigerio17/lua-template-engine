@@ -22,7 +22,7 @@ local ok, parsed = engine.tload(tpl, {},
     aTable = dummyT}
 )
 if not ok then
-    error(parsed) -- in this case 'parsed' is an error message
+    error( table.concat(parsed, "\n") ) -- in this case 'parsed' contains an error message
 else
     local text
     ok, text = parsed.evaluate()
