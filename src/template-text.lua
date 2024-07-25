@@ -7,7 +7,7 @@
 --    local ok, loaded = engine.tload("Hello $(whom)", {}, {whom="Marco"})
 --    ok, text = loaded.evaluate()
 --    print(text) -- Hello Marco
--- For more examples see the readme and the `src/sample/` folder.
+-- You can find more examples in this documentation's menu.
 --
 -- Similar programs are usually referred to as "templat[e|ing]
 -- engines" or "pre-processors" (like the examples on the Lua user-wiki this
@@ -17,17 +17,17 @@
 -- template is copied verbatim, while expressions in the form `$(<var>)` are
 -- replaced with the textual representation of `<var>`, which must be
 -- evaluatable in the given environment.
--- Finally, lines starting with `@` are interpreted entirely as Lua code.
--- For more information see the readme file and the samples.
+-- Lines starting with `@` are interpreted entirely as Lua code.
+-- For more information and more features see @{syntax_reference.md} and
+-- the examples.
 --
--- The module's local functions are for internal use.
---
--- The "public", "exported" functions
--- are those documented as `module.<...>`. These are the fields of the table
--- returned by the module, which you get by `require`ing it.
+-- The module's local functions are for internal use, whereas
+-- the "public" module's functions are those documented as `module.<...>`.
+-- These are the fields of the table you get by `require`ing the module.
 --
 -- @module template-text
 -- @author Marco Frigerio
+
 
 local function tp(t) for k,v in pairs(t) do print(k,v) end end
 
@@ -460,13 +460,14 @@ local function expand(template, opts, included_templates)
     --- An expanded template, resulting from `expand`()
     -- @table ExpandedTemplate
     -- @field source The original template text
-    -- @field code The Lua source code generated from the template
-    --   (as text). This is the code that is run when "evaluating" the
-    --   template. Inspecting this is useful for debugging or to
-    --   understand how the process works.
+    -- @field code The Lua source code generated from the template, as
+    --  an array of strings. This is the code that is run when
+    --  "evaluating" the template. Inspecting this is useful for
+    --   debugging or to understand how the process works.
     -- @field included A by-name map of the expanded included templates
     -- @field line_of_code_to_source A int-to-int map, from line of code
-    --  to the corresponding line in the source template
+    --  to the corresponding line in the source template (for internal
+    --  use - this gets more complex in the case of included templates)
     {
         source = source,
         code = chunk,
@@ -496,9 +497,9 @@ end
 --
 -- @return A boolean indicating success/failure (true/false).
 -- @return In case of success, a table `LoadResult` whose primary field is a
---  function to actually evaluate the template into text. In case of errors, a
---  string with information about the error, including a line number, when
---  possible.
+--  function to actually evaluate the template into text. In case of errors,
+--  an array of strings with information about the error, including a
+--  line number, when possible.
 --
 -- This function internally calls `expand`() and then Lua's `load`().
 --
