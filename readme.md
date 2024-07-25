@@ -112,7 +112,7 @@ The module's API documentation can be generated from the comments in the source
 code, using [LDoc](https://stevedonovan.github.io/ldoc/):
 
 ```
-ldoc --format markdown src/template-text.lua
+ldoc -c doc/config.ld src/
 ```
 
 # Authorship
