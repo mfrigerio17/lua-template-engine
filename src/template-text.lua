@@ -31,6 +31,8 @@
 
 local function tp(t) for k,v in pairs(t) do print(k,v) end end
 
+local chunk_name_for_luas_load = "user template"
+
 --- @return an iterator over the lines of the given string
 local function lines(s)
         if s:sub(-1)~="\n" then s=s.."\n" end
@@ -104,7 +106,8 @@ end
 --  extracted.
 --
 local function getErrorAndLineNumber(lua_error_msg)
-  local match_pattern = "%[.+%]:(%d+): (.*)" -- tries to match "[...]:<number>: <msg>"
+  -- try to match '[.."<chunk name>"]:<number>: <msg>'
+  local match_pattern = "%[.*\""..chunk_name_for_luas_load.."\"%]:(%d+): (.*)"
   local line, errormsg = lua_error_msg:match(match_pattern)
   if line == nil then
     errormsg = string.gsub(lua_error_msg, "^[%s]+", "") -- remove blanks at the beginning
@@ -503,7 +506,7 @@ local function tload(template, opts, env, included_templates)
     local expanded = expand(template, opts, included_templates)
     local eval_env = env or {}
 
-    local compiled, msg = load(table.concat(expanded.code, "\n"), "user template", "t", eval_env)
+    local compiled, msg = load(table.concat(expanded.code, "\n"), chunk_name_for_luas_load, "t", eval_env)
     if compiled==nil then
         local error_data = getErrorAndLineNumber(msg)
         local errormsg = {"Syntax error in the template: " .. error_data.msg}
