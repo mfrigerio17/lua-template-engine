@@ -1,0 +1,47 @@
+name: lua-template-engine-docs
+
+on:
+  push:
+    branches:
+      - master
+
+# security: restrict permissions for CI jobs.
+permissions:
+  contents: read
+
+jobs:
+  # Build the documentation and upload the static HTML files as an artifact.
+  build:
+    name: build documentation with LDoc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: 5.4
+
+      - uses: leafo/gh-actions-luarocks@v4
+
+      - run: luarocks install ldoc
+
+      - run: ldoc -c doc/config.ld src/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: doc/gen
+
+  # Deploy the artifact to GitHub pages.
+  # This is a separate job so that only actions/deploy-pages has the necessary permissions.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
