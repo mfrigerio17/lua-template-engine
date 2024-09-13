@@ -1,5 +1,5 @@
 This repository contains a Lua module for the evaluation of textual templates,
-such as `hello $(whom)`. Possible uses of template engines include code or html
+such as `hello $(whom)`. Possible uses of this module include code or html
 generation.
 
 Using a special syntax, templates can refer to _any valid Lua expression_ which
@@ -108,8 +108,11 @@ The template engine does not depend on any other module. Lua > 5.1 is required.
 
 # API docs
 
-The module's API documentation can be generated from the comments in the source
-code, using [LDoc](https://stevedonovan.github.io/ldoc/):
+Hosted [here](https://mfrigerio17.github.io/lua-template-engine/).
+
+The module's API documentation is generated from the comments in the
+source code, using [LDoc](https://stevedonovan.github.io/ldoc/). You can
+generate it yourself locally with:
 
 ```
 ldoc -c doc/config.ld src/
