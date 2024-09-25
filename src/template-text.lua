@@ -267,7 +267,7 @@ local function parse_slashes_string(slashes)
     local slashes_count = string.len(slashes)
     return {
         count          = slashes_count,
-        actual_chars   = string.rep("\\", slashes_count//2),
+        actual_chars   = string.rep("\\", math.floor(slashes_count/2)),
         escaping_active = (slashes_count % 2 == 1),
     }
 end
