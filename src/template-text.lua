@@ -43,38 +43,39 @@ local function lines(s)
 end
 
 
+local function appendLine(dest, line, global_indentation)
+    if line then
+        -- never add the indentation option for lines that are empty to start with
+        if line~="" then line = global_indentation .. line end
+        table.insert(dest, line)
+    end
+end
 
 
---- Copy every line of text in the second argument and append it into the first
---
--- @param text The destination where the lines will be appended; must be a table
--- @param lines The source to read the lines from. It must be either an array of
---  strings or a function returning a factory of a suitable iterator; for
---  example a function returning `ipairs(t)`, where `t` is a table of strings.
--- @param totIndent A string that is prepended to every line before copying the
---  line into `text`. Normally a sequence of blanks to get the desired
---  indentation
+--- Append every line of text in the second argument into the first
 --
 -- This function is used internally to implement the table-inclusion syntax
 -- `${aTable}`.
 --
-local insertLines = function(text, lines, totIndent)
-  if lines == nil then
-    error("nil argument given", 2)
-  end
-  local factory = lines
-  if type(lines) == 'table' then
-    factory = function() return ipairs(lines) end
-  elseif type(lines) ~= 'function' then
-    error("the given argument must be a table or an iterator factory (was " .. type(lines) .. ")", 2)
-  end
-  for i,line in factory() do
-    local lineadd = ""
-    if line ~= "" then
-      lineadd = totIndent .. line
+-- @param text The destination where the lines will be appended; must be a table
+-- @param src_lines The source data. It must be either an array of
+--  strings or an ordered-iterator factory; for
+--  example a function returning `ipairs(t)`, where `t` is a table of strings.
+-- @param indentation A string that is prepended to every line before copying the
+--  line into `text`. Normally a sequence of blanks to get the desired
+--  indentation.
+local insertLines = function(text, src_lines, src_indentation, indentation)
+    local iterfactory = src_lines
+    if type(src_lines) == 'table' then
+        iterfactory = ipairs
+    elseif type(src_lines) ~= 'function' then
+        error("source data must be a table or an iterator factory (was " .. type(src_lines) .. ")", 2)
     end
-    table.insert(text, lineadd)
-  end
+
+    iterfactory = mAPI.lineDecorator(iterfactory, {prefix=src_indentation})
+    for i, line in iterfactory(src_lines) do
+        appendLine(text, line, indentation)
+    end
 end
 
 
@@ -198,6 +199,7 @@ local function build_error_trace(trace, expanded_template, error_line_num, inden
     end
 end
 
+
 --- Executes the parsed template function. For internal use.
 --
 -- @param raw_eval_f The function returned by Lua's `load` on the code
@@ -221,15 +223,15 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
             env[k] = v
         end
     end
+    local opts = opts or {}
     local mytostring = (env.mytostring or tostring)
     env.table  = (env.table or table)
     env.pairs  = (env.pairs or pairs)
     env.ipairs = (env.ipairs or ipairs)
-    env.__insertLines = insertLines
-    env.__str = function(arg, arg_identifier_in_caller)
+    env.__str = function(arg, arg_identifier)
         if arg==nil then
-            local expr_name = arg_identifier_in_caller or "<??>"
-            error(string.format("Expression '%s' is undefined in the current environment", expr_name), 2)
+            local expr_name = arg_identifier or "<??>"
+            error(string.format("'%s' is undefined in the current environment", expr_name), 2)
         end
         local text = mytostring(arg)
         if type(text) ~= "string" then
@@ -237,6 +239,18 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         end
         return text
     end
+
+    env.__put = function(dest, textline, glob_indent)
+        appendLine(dest, textline, glob_indent)
+    end
+
+    env.__insertLines = function(dest, src, src_identifier, src_indent, glob_indent)
+        if src==nil then
+            error(string.format("'%s' is undefined in the current environment", src_identifier), 2)
+        end
+        insertLines(dest, src, src_indent, glob_indent)
+    end
+
     local ok, ret = xpcall(raw_eval_f, errHandler)
     if not ok then
         local myerror = {}
@@ -261,7 +275,7 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
     return false, myerror
     end
 
-    local opts = opts or {}
+
     if not (opts.returnTable or false) then
         ret = table.concat(ret, "\n")
     end
@@ -402,11 +416,13 @@ local function expand(template, opts, included_templates)
                   lineOfCode = string.format("table.insert(text, %q)",
                       indent .. tableIndent .. slashes.actual_chars .. "${" .. tableVarName .. "}" .. trailingSpace)
               elseif tableVarName == "" then
-                  -- we have an empty argument, i.e. '${}' - preserve the indentation
+                  -- an empty argument as '${}' is considered special (why would
+                  -- the user put it?), and preserve the leading spaces
+                  -- regardless of options. Trailing spaces are dropped.
                   lineOfCode = string.format("table.insert(text, %q)", indent .. tableIndent)
               else
-                  lineOfCode = string.format("__insertLines(text, %s, %q)",
-                      tableVarName, indent..tableIndent)
+                  lineOfCode = string.format("__insertLines(text, %s, %q, %q, %q)",
+                      tableVarName, tableVarName, tableIndent, indent)
               end
               goto line_parsed
           end
@@ -451,25 +467,26 @@ local function expand(template, opts, included_templates)
             -- Concatenate the subexpressions into a single one, prepending the
             -- indentation if it is not empty.
             expression = table.concat(subexpr, ' .. ')
-            if indent ~= "" then
-              expression = string.format("%q .. %s", indent, expression)
-            end
+            lineOfCode = string.format("__put(text, %s, %q)", expression, indent)
           else
-            -- No match of any '$()', thus we just add the whole line
-            -- Note that we can do string concatenation now and not defer it to
-            -- evaluation time (meaning we create '"<indent> <line>"' rather
-            -- than '"<indent>" .. "<line>"', as we do above).
-            -- However, if the line itself is empty, we do not even use
-            -- the indentation, to avoid inserting lines that contain
-            -- only blanks. TODO this may be controllable by an option
+              -- No match of any '$()', we just add the whole line as it is.
+              -- There is no need to defer to evaluation time the concatenation
+              -- with the indentation (meaning we build [["<indent><line>"]]
+              -- rather than [["<indent>" .. "<line>"]], as we do above).
+
+              -- Also, by _not_ using __put we bypass the options to drop empty
+              -- or blank lines: we want those options to apply only with field
+              -- expansion, not for the literal lines present in the template.
+
+              -- However, if the source line itself is empty, we unconditionally
+              -- skip the configured indentation, to avoid inserting a line with
+              -- only blanks.
               if line == "" then
-                  expression = [[""]]
+                  lineOfCode = "table.insert(text, \"\")"
               else
-                  expression = string.format("%q", indent .. line)
+                  lineOfCode = string.format("table.insert(text, %q)", indent..line)
               end
           end
-
-          lineOfCode = "table.insert(text, " .. expression .. ")"
         end
 
         ::line_parsed::
