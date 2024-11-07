@@ -234,6 +234,12 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         end
         return text
     end
+    env.__put = function(dest, textline)
+        if textline==nil then return end
+        if (textline:match("^%s*$")) then return end
+        table.insert(dest, textline)
+    end
+
     local ok, ret = xpcall(raw_eval_f, errHandler)
     if not ok then
         local myerror = {}
@@ -445,7 +451,7 @@ local function expand(template, opts, included_templates)
               end
           end
 
-          lineOfCode = "table.insert(text, " .. expression .. ")"
+          lineOfCode = "__put(text, " .. expression .. ")"
         end
 
         ::line_parsed::
