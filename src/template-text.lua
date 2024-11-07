@@ -206,6 +206,26 @@ local function build_error_trace(trace, expanded_template, error_line_num, inden
     end
 end
 
+
+local function addLine(text, line, preserve)
+    -- TODO check for nil arguments if the function is public
+
+    local include_empty = preserve.empty or false
+    local include_blank = preserve.blank or false
+
+    if (line:match("^%s+$")) then
+        if not include_blank then
+            line = ""
+        end
+    end
+
+    if line=="" then
+        if not include_empty then return end
+    end
+
+    table.insert(text, line)
+end
+
 --- Executes the parsed template function. For internal use.
 --
 -- @param raw_eval_f The function returned by Lua's `load` on the code
@@ -229,6 +249,7 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
             env[k] = v
         end
     end
+    local opts = opts or {}
     local mytostring = (env.mytostring or tostring)
     env.table  = (env.table or table)
     env.pairs  = (env.pairs or pairs)
@@ -245,6 +266,11 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         end
         return text
     end
+    local add_line_options = opts.preserve or {empty=true, blank=true}
+    env.__put = function(dest, textline)
+        addLine(dest, textline, add_line_options)
+    end
+
     local ok, ret = xpcall(raw_eval_f, errHandler)
     if not ok then
         local myerror = {}
@@ -269,7 +295,7 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
     return false, myerror
     end
 
-    local opts = opts or {}
+
     if not (opts.returnTable or false) then
         ret = table.concat(ret, "\n")
     end
@@ -441,22 +467,22 @@ local function expand(template, opts, included_templates)
             if indent ~= "" then
               expression = string.format("%q .. %s", indent, expression)
             end
+            lineOfCode = "__put(text, " .. expression .. ")"
           else
-            -- No match of any '$()', thus we just add the whole line
-            -- Note that we can do string concatenation now and not defer it to
-            -- evaluation time (meaning we create '"<indent> <line>"' rather
-            -- than '"<indent>" .. "<line>"', as we do above).
-            -- However, if the line itself is empty, we do not even use
-            -- the indentation, to avoid inserting lines that contain
-            -- only blanks. TODO this may be controllable by an option
+              -- No match of any '$()', thus we just add the whole line.
+              -- There is no need to defer to evaluation time, so we do not rely
+              -- on '__put()' and we do string concatenation right here
+              -- (meaning we build [["<indent> <line>"]] rather than
+              -- [["<indent>" .. "<line>"]], as we do above).
+              -- However, if the line itself is empty, we skip the indentation
+              -- to avoid inserting lines that contain only blanks.
+              -- TODO this may be controllable by an option.
               if line == "" then
-                  expression = [[""]]
+                  lineOfCode = "table.insert(text, \"\")"
               else
-                  expression = string.format("%q", indent .. line)
+                  lineOfCode = string.format("table.insert(text, %q)", indent..line)
               end
           end
-
-          lineOfCode = "table.insert(text, " .. expression .. ")"
         end
 
         ::line_parsed::
