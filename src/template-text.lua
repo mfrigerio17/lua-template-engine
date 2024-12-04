@@ -195,6 +195,24 @@ local function build_error_trace(trace, expanded_template, error_line_num, inden
     end
 end
 
+
+local function add_line(text, line, doadd)
+    -- TODO check for nil arguments if the function is public
+
+    local include_empty = doadd.empty or false
+    local include_blank = doadd.blank or false
+
+    if line=="" then
+        if not include_empty then return end
+    end
+
+    if (line:match("^%s*$")) then
+        if not include_blank then return end
+    end
+
+    table.insert(text, line)
+end
+
 --- Executes the parsed template function. For internal use.
 --
 -- @param raw_eval_f The function returned by Lua's `load` on the code
@@ -218,6 +236,7 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
             env[k] = v
         end
     end
+    local opts = opts or {}
     local mytostring = (env.mytostring or tostring)
     env.table  = (env.table or table)
     env.pairs  = (env.pairs or pairs)
@@ -234,10 +253,9 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         end
         return text
     end
+    local add_line_options = opts.doadd or {empty=true, blank=true}
     env.__put = function(dest, textline)
-        if textline==nil then return end
-        if (textline:match("^%s*$")) then return end
-        table.insert(dest, textline)
+        add_line(dest, textline, add_line_options)
     end
 
     local ok, ret = xpcall(raw_eval_f, errHandler)
@@ -264,7 +282,7 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
     return false, myerror
     end
 
-    local opts = opts or {}
+
     if not (opts.returnTable or false) then
         ret = table.concat(ret, "\n")
     end
