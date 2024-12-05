@@ -207,7 +207,7 @@ local function build_error_trace(trace, expanded_template, error_line_num, inden
 end
 
 
-local function add_line(text, line, doadd)
+local function addLine(text, line, doadd)
     -- TODO check for nil arguments if the function is public
 
     local include_empty = doadd.empty or false
@@ -266,7 +266,7 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
     end
     local add_line_options = opts.doadd or {empty=true, blank=true}
     env.__put = function(dest, textline)
-        add_line(dest, textline, add_line_options)
+        addLine(dest, textline, add_line_options)
     end
 
     local ok, ret = xpcall(raw_eval_f, errHandler)
