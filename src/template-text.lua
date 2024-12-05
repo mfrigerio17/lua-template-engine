@@ -39,11 +39,22 @@ local function lines(s)
         return s:gmatch("(.-)\n")
 end
 
---- Copy every string in the second argument into the first, prepending indentation.
--- The first argument must be a table. The second argument is either a table
--- itself (having strings as elements) or a function returning a factory of
--- a suitable iterator; for example, a function returning 'ipairs(t)', where 't'
--- is a table of strings, is a valid argument.
+
+
+
+--- Copy every line of text in the second argument and append it into the first
+--
+-- @param text The destination where the lines will be appended; must be a table
+-- @param lines The source to read the lines from. It must be either an array of
+--    strings or a function returning a factory of a suitable iterator; for
+--    example a function returning `ipairs(t)`, where `t` is a table of strings
+-- @param totIndent A string that is prepended to every line before copying the
+--    line into `text`. Normally a sequence of blanks to get the desired
+--    indentation
+--
+-- This function is used internally to implement the table-inclusion syntax
+-- `${aTable}`.
+--
 local insertLines = function(text, lines, totIndent)
   if lines == nil then
     error("nil argument given", 2)
