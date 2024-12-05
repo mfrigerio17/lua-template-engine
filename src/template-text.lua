@@ -465,22 +465,22 @@ local function expand(template, opts, included_templates)
             if indent ~= "" then
               expression = string.format("%q .. %s", indent, expression)
             end
+            lineOfCode = "__put(text, " .. expression .. ")"
           else
-            -- No match of any '$()', thus we just add the whole line
-            -- Note that we can do string concatenation now and not defer it to
-            -- evaluation time (meaning we create '"<indent> <line>"' rather
-            -- than '"<indent>" .. "<line>"', as we do above).
-            -- However, if the line itself is empty, we do not even use
-            -- the indentation, to avoid inserting lines that contain
-            -- only blanks. TODO this may be controllable by an option
+              -- No match of any '$()', thus we just add the whole line.
+              -- There is no need to defer to evaluation time, so we do not rely
+              -- on '__put()' and we do string concatenation right here
+              -- (meaning we build [["<indent> <line>"]] rather than
+              -- [["<indent>" .. "<line>"]], as we do above).
+              -- However, if the line itself is empty, we skip the indentation
+              -- to avoid inserting lines that contain only blanks.
+              -- TODO this may be controllable by an option.
               if line == "" then
-                  expression = [[""]]
+                  lineOfCode = "table.insert(text, \"\")"
               else
-                  expression = string.format("%q", indent .. line)
+                  lineOfCode = string.format("table.insert(text, %q)", indent..line)
               end
           end
-
-          lineOfCode = "__put(text, " .. expression .. ")"
         end
 
         ::line_parsed::
