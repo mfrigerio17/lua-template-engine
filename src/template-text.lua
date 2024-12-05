@@ -217,7 +217,7 @@ local function addLine(text, line, doadd)
         if not include_empty then return end
     end
 
-    if (line:match("^%s*$")) then
+    if (line:match("^%s+$")) then
         if not include_blank then return end
     end
 
