@@ -73,7 +73,7 @@ local test3 = {
 [[
 ${lines}
     ${lines}
-${empty}
+
 Only when alone in the line: ${lines}
 ${lines}: Only when alone in the line
 ]],
@@ -83,12 +83,12 @@ Lorem ipsum dolor sit amet
 consectetur adipiscing elit
     Lorem ipsum dolor sit amet
     consectetur adipiscing elit
+
 Only when alone in the line: ${lines}
 ${lines}: Only when alone in the line
 ]],
     env = {
         lines = {"Lorem ipsum dolor sit amet", "consectetur adipiscing elit"},
-        empty = {},
     },
     opts = {},
 }
