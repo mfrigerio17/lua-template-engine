@@ -28,7 +28,7 @@ local function dotest(engine, case)
         error("Test case "..case.id.." failed while loading the template")
     end
     local text
-    ok, text = ret.evaluate()
+    ok, text = ret.evaluate(case.opts)
     if not ok then
         print(table.concat(text, "\n"))
         error("Test case "..case.id.." failed while evaluating the template")
