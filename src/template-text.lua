@@ -40,6 +40,24 @@ local function lines(s)
 end
 
 
+local function addLine(text, line, preserve)
+    -- TODO check for nil arguments if the function is public
+
+    local include_empty = preserve.empty or false
+    local include_blank = preserve.blank or false
+
+    if (line:match("^%s+$")) then
+        if not include_blank then
+            line = ""
+        end
+    end
+
+    if line=="" then
+        if not include_empty then return end
+    end
+
+    table.insert(text, line)
+end
 
 
 --- Copy every line of text in the second argument and append it into the first
@@ -55,23 +73,26 @@ end
 -- This function is used internally to implement the table-inclusion syntax
 -- `${aTable}`.
 --
-local insertLines = function(text, lines, totIndent)
-  if lines == nil then
-    error("nil argument given", 2)
-  end
+local insertLines = function(text, lines, tot_indent, opts_preserve)
   local factory = lines
   if type(lines) == 'table' then
     factory = function() return ipairs(lines) end
   elseif type(lines) ~= 'function' then
     error("the given argument must be a table or an iterator factory (was " .. type(lines) .. ")", 2)
   end
-  for i,line in factory() do
-    local lineadd = ""
-    if line ~= "" then
-      lineadd = totIndent .. line
+    local iter = factory()
+
+    -- When 'lines' is empty, attempt add a line anyway, to preserve the line
+    -- where the table itself was included (as in "   ${IamEmpty}").
+    -- Otherwise, just unroll the table content.
+    -- In both cases, rely on 'addLine' for the policy about empty/blank lines
+    if iter(lines,0) == nil then
+        addLine(text, tot_indent, opts_preserve)
+    else
+        for i,line in factory() do
+            addLine(text, tot_indent..line, opts_preserve)
+        end
     end
-    table.insert(text, lineadd)
-  end
 end
 
 --- Decorates an existing string iteration, adding an optional prefix and suffix.
@@ -207,25 +228,6 @@ local function build_error_trace(trace, expanded_template, error_line_num, inden
 end
 
 
-local function addLine(text, line, preserve)
-    -- TODO check for nil arguments if the function is public
-
-    local include_empty = preserve.empty or false
-    local include_blank = preserve.blank or false
-
-    if (line:match("^%s+$")) then
-        if not include_blank then
-            line = ""
-        end
-    end
-
-    if line=="" then
-        if not include_empty then return end
-    end
-
-    table.insert(text, line)
-end
-
 --- Executes the parsed template function. For internal use.
 --
 -- @param raw_eval_f The function returned by Lua's `load` on the code
@@ -254,7 +256,6 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
     env.table  = (env.table or table)
     env.pairs  = (env.pairs or pairs)
     env.ipairs = (env.ipairs or ipairs)
-    env.__insertLines = insertLines
     env.__str = function(arg, arg_identifier_in_caller)
         if arg==nil then
             local expr_name = arg_identifier_in_caller or "<??>"
@@ -269,6 +270,13 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
     local add_line_options = opts.preserve or {empty=true, blank=true}
     env.__put = function(dest, textline)
         addLine(dest, textline, add_line_options)
+    end
+
+    env.__insertLines = function(dest, src, indent)
+        if src == nil then
+            error("nil argument given", 2)
+        end
+        insertLines(dest, src, indent, add_line_options)
     end
 
     local ok, ret = xpcall(raw_eval_f, errHandler)
