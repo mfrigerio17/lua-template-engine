@@ -515,6 +515,9 @@ end
 -- This function internally calls `expand`() and then Lua's `load`().
 --
 local function tload(template, opts, env, included_templates)
+    if template == nil then
+        return false, {"Null template given to 'tload()'"}
+    end
     local expanded = expand(template, opts, included_templates)
     local eval_env = env or {}
 
