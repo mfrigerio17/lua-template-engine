@@ -116,8 +116,12 @@ end
 --  message (`msg`). The line number is set to -1 when it could not be
 --  extracted.
 --
-local function getErrorAndLineNumber(lua_error_msg)
-  -- try to match '[.."<chunk name>"]:<number>: <msg>'
+local function getErrorAndLineNumber(lua_error_obj)
+  local lua_error_msg = tostring(lua_error_obj) -- no guarantees the error is a string
+
+  -- Try to match the error message with
+  --   [.."<chunk name>"]:<number>: <msg>
+  -- to extract the line number and the actual error msg
   local match_pattern = "%[.*\""..chunk_name_for_luas_load.."\"%]:(%d+): (.*)"
   local line, errormsg = lua_error_msg:match(match_pattern)
   if line == nil then
@@ -142,9 +146,9 @@ end
 --  `getErrorAndLineNumber` for each line of the stacktrace where a line
 --  number could be extracted.
 --
-local function errHandler(e)
+local function errHandler(lua_error_obj)
   local ret = {
-    cause = getErrorAndLineNumber(e),
+    cause = getErrorAndLineNumber(lua_error_obj),
     stacktrace = {}
   }
   -- get the Lua stacktrace text, but remove the first line
