@@ -151,9 +151,10 @@ local function errHandler(lua_error_obj)
     cause = getErrorAndLineNumber(lua_error_obj),
     stacktrace = {}
   }
-  -- get the Lua stacktrace text, but remove the first line
-  local stacktrace = string.gsub(debug.traceback(), "stack traceback:\n", "")
-  --print("-----")print(e) print(stacktrace)print("------")
+  -- Get the Lua stacktrace text, but remove the first line
+  -- Also, pass '2' in order to skip this very function from the list
+  local stacktrace = string.gsub(debug.traceback(nil,2), "stack traceback:\n", "")
+  --print("-----")print(lua_error_obj) print(stacktrace)print("------")
 
   for entry in stacktrace:gmatch("(.-)\n") do -- for every line
     if string.find(entry, "xpcall") then
