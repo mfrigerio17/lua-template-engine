@@ -43,23 +43,43 @@ local function lines(s)
 end
 
 
-local function addLine(text, line, preserve)
-    -- TODO check for nil arguments if the function is public
+local function filterEmpty(line)
+    if line=="" then return nil end
+    return line
+end
 
-    local include_empty = preserve.empty or false
-    local include_blank = preserve.blank or false
+local function filterBlank(line)
+    if (line:match("^%s+$")) then return "" end
+    return line
+end
 
-    if (line:match("^%s+$")) then
-        if not include_blank then
-            line = ""
+local function filterBlankAndEmpty(line)
+    if (line:match("^%s*$")) then return nil end
+    return line
+end
+
+local function lineFilterFactory(dopreserve)
+    local preserve = dopreserve or {empty=true, blank=true}
+    if preserve.blank==nil then preserve.blank = true end
+    if preserve.empty==nil then preserve.empty = true end
+
+    if preserve.blank then
+        if preserve.empty then
+            return function(line) return line end
+        else
+            return filterEmpty
         end
+    elseif preserve.empty then
+        -- DONT preserve blanks, DO preserve empties
+        return filterBlank
+    else
+        return filterBlankAndEmpty
     end
+end
 
-    if line=="" then
-        if not include_empty then return end
-    end
-
-    table.insert(text, line)
+local function appendLine(dest, line, filter)
+    line = filter(line)
+    if line then table.insert(dest, line) end
 end
 
 
@@ -69,14 +89,14 @@ end
 -- @param lines The source to read the lines from. It must be either an array of
 --  strings or a function returning a factory of a suitable iterator; for
 --  example a function returning `ipairs(t)`, where `t` is a table of strings.
--- @param totIndent A string that is prepended to every line before copying the
+-- @param indentation A string that is prepended to every line before copying the
 --  line into `text`. Normally a sequence of blanks to get the desired
 --  indentation
 --
 -- This function is used internally to implement the table-inclusion syntax
 -- `${aTable}`.
 --
-local insertLines = function(text, lines, tot_indent, opts_preserve, opts_preserve_from_table)
+local insertLines = function(text, lines, indentation, lineFilter)
   local factory = lines
   if type(lines) == 'table' then
     factory = function() return ipairs(lines) end
@@ -86,14 +106,18 @@ local insertLines = function(text, lines, tot_indent, opts_preserve, opts_preser
     local iter = factory()
 
     -- When 'lines' is empty, attempt to add a line anyway, to preserve the line
-    -- where the table itself was included (as in "   ${IamEmpty}").
+    -- where the table itself was included (as in "${IamEmpty}").
     -- Otherwise, just unroll the table content.
-    -- In both cases, rely on 'addLine' for the policy about empty/blank lines
+    -- In both cases
+    --  . never add indentation for lines that are empty to start with
+    --  . rely on 'appendLine' to decide on empty lines
+
     if iter(lines,0) == nil then
-        addLine(text, tot_indent, opts_preserve)
+        appendLine(text, "", lineFilter)
     else
-        for i,line in factory() do
-            addLine(text, tot_indent..line, opts_preserve_from_table)
+        for i, line in factory() do
+            if line~="" then line = indentation .. line end
+            appendLine(text, line, lineFilter)
         end
     end
 end
@@ -259,16 +283,17 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         end
         return text
     end
-    local opts_preserve_expansion = opts.preserve or {empty=true, blank=true}
+    local lineFilter = lineFilterFactory(opts.preserve)
+
     env.__put = function(dest, textline)
-        addLine(dest, textline, opts_preserve_expansion)
+        appendLine(dest, textline, lineFilter)
     end
 
     env.__insertLines = function(dest, src, indent)
         if src == nil then
             error("nil argument given", 2)
         end
-        insertLines(dest, src, indent, opts_preserve_expansion, opts.preserve_from_tables or {empty=true, blank=true})
+        insertLines(dest, src, indent, lineFilter)
     end
 
     local ok, ret = xpcall(raw_eval_f, errHandler)
@@ -436,7 +461,9 @@ local function expand(template, opts, included_templates)
                   lineOfCode = string.format("table.insert(text, %q)",
                       indent .. tableIndent .. slashes.actual_chars .. "${" .. tableVarName .. "}" .. trailingSpace)
               elseif tableVarName == "" then
-                  -- we have an empty argument, i.e. '${}' - preserve the indentation
+                  -- an empty argument as '${}' is considered special (why would
+                  -- the user put it?), and preserve the leading spaces
+                  -- regardless of options. Trailing spaces are dropped.
                   lineOfCode = string.format("table.insert(text, %q)", indent .. tableIndent)
               else
                   lineOfCode = string.format("__insertLines(text, %s, %q)",
