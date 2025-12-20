@@ -76,7 +76,7 @@ end
 -- This function is used internally to implement the table-inclusion syntax
 -- `${aTable}`.
 --
-local insertLines = function(text, lines, tot_indent, opts_preserve)
+local insertLines = function(text, lines, tot_indent, opts_preserve, opts_preserve_from_table)
   local factory = lines
   if type(lines) == 'table' then
     factory = function() return ipairs(lines) end
@@ -93,7 +93,7 @@ local insertLines = function(text, lines, tot_indent, opts_preserve)
         addLine(text, tot_indent, opts_preserve)
     else
         for i,line in factory() do
-            addLine(text, tot_indent..line, opts_preserve)
+            addLine(text, tot_indent..line, opts_preserve_from_table)
         end
     end
 end
@@ -259,16 +259,16 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         end
         return text
     end
-    local add_line_options = opts.preserve or {empty=true, blank=true}
+    local opts_preserve_expansion = opts.preserve or {empty=true, blank=true}
     env.__put = function(dest, textline)
-        addLine(dest, textline, add_line_options)
+        addLine(dest, textline, opts_preserve_expansion)
     end
 
     env.__insertLines = function(dest, src, indent)
         if src == nil then
             error("nil argument given", 2)
         end
-        insertLines(dest, src, indent, add_line_options)
+        insertLines(dest, src, indent, opts_preserve_expansion, opts.preserve_from_tables or {empty=true, blank=true})
     end
 
     local ok, ret = xpcall(raw_eval_f, errHandler)
