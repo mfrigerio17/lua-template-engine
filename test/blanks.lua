@@ -108,9 +108,13 @@ dotest( {
     opts = { preserve={blank=false, empty=false} },
 } )
 
--- ----------------------------------- --
--- Now tests involving table inclusion --
--- ----------------------------------- --
+-- ------------------------------- --
+-- Tests involving table inclusion --
+-- ------------------------------- --
+
+-- An empty table is like an empty field, the same options control what happens
+-- with the corresponding line
+
 env.empty_table={}
 
 local tpl_with_empty_table = [[
@@ -158,9 +162,11 @@ dotest( {
 } )
 
 
---
+
 -- Tests with a non-empty table that contains blank/empty lines
 --
+
+-- In this case there are separate options to control rendering the empty lines
 
 local includeMe = {"table line 1", "    ", "table line 3", "", "table line 5" }
 local tpl = [[
@@ -205,7 +211,7 @@ dotest( {
     tpl = tpl,
     expected = expected_preserve_all,
     env = env,
-    opts = { preserve={blank=true, empty=true} },
+    opts = { preserve_from_tables={blank=true, empty=true} },
 } )
 
 dotest( {
@@ -214,7 +220,7 @@ dotest( {
     tpl = tpl,
     expected = expected_preserve_empty,
     env = env,
-    opts = { preserve={blank=false, empty=true} },
+    opts = { preserve_from_tables={blank=false, empty=true} },
 } )
 
 dotest( {
@@ -223,7 +229,7 @@ dotest( {
     tpl = tpl,
     expected = expected_preserve_none,
     env = env,
-    opts = { preserve={blank=false, empty=false} },
+    opts = { preserve_from_tables={blank=false, empty=false} },
 } )
 
 
@@ -305,6 +311,38 @@ The line above has 4 blank characters
 dotest( {
     id = "drop-expanded-empty-tables-but-preserve-static-ones",
     desc = "empty lines in the source template are always preserved",
+    tpl = tpl,
+    expected = expected,
+    env = env,
+    opts = { preserve={blank=false, empty=false} },
+} )
+
+
+-- The next one is tricky..
+--
+tpl = [[
+@for i = 1,3 do
+    $(empty)
+
+@end
+]]
+-- With a template like this, the user wants an empty line to separate the
+-- repeated expansions, but most likely he/she wants it _only_ if the expansion
+-- actually yields something.
+-- However, at the moment we cannot do that: for this example, if we preserve
+-- empty lines, we will get six of them. If we drop them, we will still get
+-- three, because the options only control the result of expansions. The literal
+-- empty line in the template is not affected (by design!)
+
+expected = [[
+
+
+
+]]
+
+dotest( {
+    id = "",
+    desc = "",
     tpl = tpl,
     expected = expected,
     env = env,
