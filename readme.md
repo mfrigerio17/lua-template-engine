@@ -28,13 +28,13 @@ key: $(k)    value: $(v)
 local dummyF = function(i) return i*3 end
 local dummyT = {"bear", "wolf", "shark", "monkey"}
 
--- Error checking omitted for brevity
-
-local ok, parsed = engine.parse(tpl, {},
+local ok, parsed = engine.tload(tpl, {},
   { name   = "Marco",
     many   = dummyF,
     aTable = dummyT}
 )
+
+-- error checking omitted for brevity
 local text
 ok, text = parsed.evaluate()
 print(text)
