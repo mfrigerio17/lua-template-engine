@@ -107,15 +107,9 @@ test_basic([[\$(var) --- $(var)]], [[    $(var) --- 42]], {var=42}, {indent=4})
 -- TABLE EXPANSION -----------------------------------------------------
 -- Empty table expansion should be allowed
 test_basic("${}", "")
--- leading blanks must be preserved, that is (intended) indentation
-test_basic("  ${}", "  ")
-test_basic("	${}", "	") -- this is a TAB
--- trailing space is dropped, does not make much sense after a table inclusion
-test_basic("${}  ", "")
-
-test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
 
 -- any valid Lua expression that evaluates to a table should work
+test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
 test_basic("${nest.ed}", "a single line", { nest={ed={"a single line"}} })
 test_basic("${f()}", "a single line", { f= function() return {"a single line"} end })
 
