@@ -327,10 +327,19 @@ local function expand(template, opts, included_templates)
         -- CODE statements
         -- Look for a '@' ignoring blanks (%s) at the beginning of the line
         -- If it's there, copy the string following the '@'
-        local s,e = line:find("^%s*@")
-        if s then
-            lineOfCode = line:sub(e+1)
-            goto line_parsed
+        do
+          local s,e,indentAT,slashes = line:find("^([%s]*)(\\*)@")
+          if s then
+              slashes = parse_slashes_string(slashes)
+              -- regardless of how many '/', the line is not a special AT-line
+              if slashes.count > 0 then
+                  lineOfCode = string.format("table.insert(text, %q)",
+                      indentAT .. slashes.actual_chars .. '@' .. line:sub(e+1))
+              else
+                  lineOfCode = line:sub(e+1)  -- user's line is already a line of code
+              end
+              goto line_parsed
+          end
         end
 
         -- INCLUDED templates

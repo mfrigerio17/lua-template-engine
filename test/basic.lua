@@ -186,6 +186,17 @@ test_basic(" @ ", "")
 test_basic("	@", "") -- these have TABs
 test_basic("@	", "")
 
+test_basic([[\@]], [[@]])
+test_basic([[  \@]], [[  @]])
+test_basic([[\@ for k,v...]], [[@ for k,v...]])
+
+test_basic([[a@]], [[a@]])
+test_basic([[\\@]], [[\@]])
+
+test_basic([[a\@]], [[a\@]])
+test_basic([[\\\@]], [[\@]])
+
+
 test_basic([[
 @for i,v in ipairs({"wolf", "dog", "chicken"}) do
 $(i) $(v)
