@@ -597,6 +597,7 @@ local public_api = {
 
     expand = expand,
 
+    VERSION = '0.2.1',
 }
 
 
