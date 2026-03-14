@@ -569,22 +569,25 @@ local public_api = {
     -- @function module.tload
     tload = tload,
 
-  --- Deprecated. Evaluates the given textual template.
+  --- Loads and evaluates the given textual template.
   --
-  -- Deprecated, included for backwards compatibility with the older version of
-  -- this module.
-  -- It is equivalent to call `tload` first, and then `evaluate()` on the
+  -- This function is provided for convenience and for backwards compatibility
+  -- with the older version of this module.
+  -- It is equivalent to call `tload()` first, and then `evaluate()` on the
   -- result.
+  -- @return A boolean flag indicating success
+  -- @return The evaluation result (which is normally text). The text of the
+  --   error message if the first return value is false.
   -- @function module.template_eval
-  template_eval = function(tpl, env, opts)
-    local ok, ret = tload(tpl, opts, env)
+  template_eval = function(tpl, env, opts, included_templates)
+    local ok, ret = tload(tpl, opts, env, included_templates)
     if ok then
         ok, ret = ret.evaluate(opts)
     end
     if not ok then
         ret = table.concat(ret, "\n")
     end
-    return ok,ret -- always <boolean>,<text>
+    return ok,ret
   end,
 
     --- Adds prefix/suffix to the text produced by an existing iterator.
