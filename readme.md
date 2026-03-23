@@ -123,7 +123,6 @@ ldoc -c doc/config.ld src/
 By Marco Frigerio, heavily based on the code available in the
 [Lua-users-wiki](http://lua-users.org/wiki/SlightlyLessSimpleLuaPreprocessor)
 
-Copyright © 2020-2024 Marco Frigerio  
-All rights reserved.
+© 2020 Marco Frigerio
 
 Released under a permissive BSD license. See the `LICENSE` file for details.
