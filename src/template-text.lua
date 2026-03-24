@@ -176,11 +176,12 @@ end
 -- of nested templates, at arbitrary depth (e.g. template t1 includes t2
 -- which includes t3, ..., tn, and the error is in tn).
 --
--- @param trace The table holding the sequence (array) of messages
--- @param expanded_template The `ExpandedTemplate` table in which the error
+-- @param trace The table holding the sequence (array) of messages; this is
+--   filled by this function
+-- @param expanded_template The `ExpandedTemplate` in which the error
 --   occurred
 -- @param error_line_num The number of the line of code where the error
---   occurred
+--   occurred, that is the index of `expanded_template.code`.
 -- @param indent The current value of indentation for the formatting of
 --   the error messages
 local function build_error_trace(trace, expanded_template, error_line_num, indent)
@@ -190,24 +191,37 @@ local function build_error_trace(trace, expanded_template, error_line_num, inden
     end
     local target = expanded_template.line_of_code_to_source[error_line_num]
     if target == nil then
-        _put("Internal error: could not back track the given line number "..error_line_num)
+        _put("Internal error: could not back-track line number "..error_line_num)
         --tp(expanded_template.line_of_code_to_source)
         return
     end
     --print(target, error_line_num)
     --tp(expanded_template.line_of_code_to_source)
 
-    if type(target) == "number" then -- it is a normal line number, referring to the source
-        _put("[your template]:" .. target .. ":  >>> " .. expanded_template.source[target] .. " <<<")
-    else -- it is a reference to an included template
+    if type(target) == "number" then
+        -- it is a normal line number, referring to the source
+        _put(string.format("[your template]:%d:  >>> %s <<<",
+            target, expanded_template.source[target]))
+    else
+        -- It is a reference to an included template. Thus, mention that and
+        -- then recurse into the included template, to pinpoint the culprit line
+        -- relative to the included template too.
+
         local included = expanded_template.included[target]
         if included == nil then
             _put("Internal error: could not find the data of included template '" .. target .. "'")
             return
         end
-        _put("in template '"..target.."' included at line "..
-          included.at_line .. ":  >>> " .. expanded_template.source[included.at_line] .. " <<<")
-        build_error_trace(trace, included.template, error_line_num - included.first_code_line + 1, indent.."  ")
+        _put(string.format("in template '%s' included at line %d: >>> %s <<<",
+            target, included.at_line, expanded_template.source[included.at_line]))
+        build_error_trace(trace, included.template, error_line_num - included.first_code_line + 2, indent.."  ")
+
+        -- (error_line_num - included.first_code_line + 1) gives the number of
+        -- the same line of code, but relative to the "pasted" section of the
+        -- included template. We need an extra +1 because the code expanded from
+        -- any template always has a first line _which is not pasted when
+        -- doing inclusion_. So, line n of the pasted section corresponds to
+        -- line n+1 in the actual, complete code of the template.
     end
 end
 
