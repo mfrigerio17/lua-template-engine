@@ -66,16 +66,54 @@ input,button,textarea,select {*font-size:100%;
 
 /* Style based on LDoc 1.4.3 "fixed" style */
 
-body {
-    margin-left: 1em;
-    margin-right: 1em;
-    font-family: arial, helvetica, geneva, sans-serif;
-    background-color: #ffffff; margin: 0px;
+:root {
+    --navbar-width: 180px; /* abs value as it may be used in different contexes with different font size */
+    --color-bground: #FCFBF9;
+    --margin-side: 2em;
 }
 
-code {
-    font-family: monospace;
+body {
+    font-family: helvetica, sans;
+    background-color: var(--color-bground);
 }
+
+#container {
+    margin-left : var(--margin-side);
+    margin-right: var(--margin-side);
+}
+
+#navigation {
+    position: fixed;
+    top: 5px;
+    left: var(--margin-side);
+    width: var(--navbar-width);
+    border-right: 2px solid #cccccc;
+    overflow: visible;
+    overflow-y: scroll;
+    height: 100%;
+    .current {
+        background : aliceblue;
+    }
+}
+
+#content {
+    margin-left: var(--navbar-width); /* avoid the sidebar */
+    padding: 1em;
+    width: 70ch;
+}
+
+#about {
+    margin-left: var(--navbar-width); /* avoid the sidebar */
+    padding-left: 2ch;
+    font-size: 80%;
+    color: gray;
+}
+
+#page_TOC {
+    position: fixed;
+    margin-left: 95ch; /* TODO sum the widths of navigation and content */
+}
+
 
 span.parameter { font-family:monospace; }
 span.parameter:after { content:":"; }
@@ -100,9 +138,17 @@ h2 { font-size: 1.25em; }
 h3 { font-size: 1.15em; }
 h4 { font-size: 1.06em; }
 
-a:link { font-weight: bold; color: #004080; text-decoration: none; }
-a:visited { font-weight: bold; color: #006699; text-decoration: none; }
-a:link:hover { text-decoration: underline; }
+a:link {
+    color: #004080;
+    text-decoration: none;
+    &:hover {
+        background: aliceblue;
+    }
+    transition-duration: 0.2s;
+    transition-property: background;
+}
+a:visited { color: #006699; }
+//a:link:hover { text-decoration: underline; }
 
 hr {
     color:#cccccc;
@@ -135,44 +181,10 @@ pre.example {
 table.index { border: 1px #00007f; }
 table.index td { text-align: left; vertical-align: top; }
 
-#container {
-    margin-left: 1em;
-    margin-right: 1em;
-    background-color: #ffffff;
-}
 
-#product {
-    text-align: center;
-    border-bottom: 1px solid #cccccc;
-    background-color: #ffffff;
-}
 
-#product big {
-    font-size: 2em;
-}
-
-#main {
-    background-color:#FFFFFF; // #f0f0f0;
-    border-left: 1px solid #cccccc;
-}
-
-#navigation {
-    position: fixed;
-    top: 0;
-    left: 0;
-    float: left;
-    width: 14em;
-    vertical-align: top;
-    background-color:#FFFFFF; // #f0f0f0;
-    border-right: 2px solid #cccccc;
-    overflow: visible;
-    overflow-y: scroll;
-    height: 100%;
-    padding-left: 1em;
-}
 
 #navigation h2 {
-    background-color:#FFFFFF;//:#e7e7e7;
     font-size:1.1em;
     color:#000000;
     text-align: left;
@@ -182,71 +194,24 @@ table.index td { text-align: left; vertical-align: top; }
 
 #navigation ul
 {
-    font-size:1em;
     list-style-type: none;
     margin: 1px 1px 10px 1px;
 }
 
 #navigation li {
-    text-indent: -1em;
     display: block;
     margin: 3px 0px 0px 22px;
+    a {
+        display: block;
+    }
 }
 
 #navigation li li a {
     margin: 0px 3px 0px -1em;
 }
 
-#content {
-    margin-left: 14em;
-    padding: 1em;
-    padding-left: 2em;
-    width: 700px;
-    border-left: 2px solid #cccccc;
-   // border-right: 2px solid #cccccc;
-    background-color: #ffffff;
-}
 
-#about {
-    clear: both;
-    padding-left: 1em;
-    margin-left: 14em; // avoid the damn sidebar!
-    border-top: 2px solid #cccccc;
-    border-left: 2px solid #cccccc;
-    background-color: #ffffff;
-}
 
-@media print {
-    body {
-        font: 12pt "Times New Roman", "TimeNR", Times, serif;
-    }
-    a { font-weight: bold; color: #004080; text-decoration: underline; }
-
-    #main {
-        background-color: #ffffff;
-        border-left: 0px;
-    }
-
-    #container {
-        margin-left: 2%;
-        margin-right: 2%;
-        background-color: #ffffff;
-    }
-
-    #content {
-        padding: 1em;
-        background-color: #ffffff;
-    }
-
-    #navigation {
-        display: none;
-    }
-    pre.example {
-        font-family: "Andale Mono", monospace;
-        font-size: 10pt;
-        page-break-inside: avoid;
-    }
-}
 
 table {
     font-size   : 90%;

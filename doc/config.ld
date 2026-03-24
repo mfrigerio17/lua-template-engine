@@ -6,4 +6,6 @@ all = true
 dir = "doc/gen"
 examples = {"src/sample"}
 style = true
+template = true
+project = "Marco's template engine"
 
