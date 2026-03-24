@@ -1,4 +1,6 @@
-local function do_load_fail_on_error(engine, case)
+local thisModule = {}
+
+function thisModule.do_load_fail_on_error(engine, case)
     local ok, ret = engine.tload(case.tpl, case.opts, case.env, case.included)
     if not ok then
         print(table.concat(ret, "\n"))
@@ -7,7 +9,7 @@ local function do_load_fail_on_error(engine, case)
     return ret
 end
 
-local function do_eval_fail_on_error(loaded_template, opts)
+function thisModule.do_eval_fail_on_error(loaded_template, opts)
     local ok, ret = loaded_template.evaluate(opts)
     if not ok then
         print(table.concat(ret, "\n"))
@@ -16,12 +18,12 @@ local function do_eval_fail_on_error(loaded_template, opts)
     return ret
 end
 
-local function do_loadeval_fail_on_error(engine, case)
-    local ret = do_load_fail_on_error(engine, case)
-    return do_eval_fail_on_error(ret, case.opts)
+function thisModule.do_loadeval_fail_on_error(engine, case)
+    local ret = thisModule.do_load_fail_on_error(engine, case)
+    return thisModule.do_eval_fail_on_error(ret, case.opts)
 end
 
-local function dotest(engine, case)
+function thisModule.dotest(engine, case)
     local ok, ret, expanded = engine.tload(case.tpl, case.opts, case.env, case.included)
     if not ok then
         print(table.concat(ret, "\n"))
@@ -55,11 +57,25 @@ local function dotest(engine, case)
 end
 
 
+function thisModule.dotest_expect_load_error(engine, case)
+    local ok, ret, expanded = engine.tload(case.tpl, case.opts, case.env, case.included)
+    if ok then
+        error("Test case "..case.id.." failed: syntax error expected but not raised")
+    end
+    return ok, ret, expanded
+end
 
-return {
-    dotest = dotest,
-    do_load_fail_on_error = do_load_fail_on_error,
-    do_eval_fail_on_error = do_eval_fail_on_error,
-    do_loadeval_fail_on_error = do_loadeval_fail_on_error,
-}
+function thisModule.dotest_expect_eval_error(engine, case)
+    local ok, ret, expanded = engine.tload(case.tpl, case.opts, case.env, case.included)
+    if not ok then
+        error("Test case "..case.id.." failed: unexpected load-time error")
+    end
+    ok, ret = ret.evaluate()
+    if ok then
+        error("Test case "..case.id.." failed: evaluation error expected but not raised")
+    end
+    return ok, ret, expanded
+end
+
+return thisModule
 
