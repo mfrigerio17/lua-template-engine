@@ -364,12 +364,15 @@ local function expand(template, opts, included_templates)
               end
 
               if included_templates[includedName] == nil then
-                  error("Referenced template '".. includedName .. "' was not given in the included templates parameter ")
+                  return nil, "Referenced template '".. includedName .. "' was not given in the included templates parameter"
               end
               local options = {}
               for k,v in pairs(opts) do options[k]=v end -- shallow table copy
               options.indent = (opts.indent or 0) + string.len(includeIndent)
-              local expanded = expand(included_templates[includedName], options, included_templates)
+              local expanded,errmsg = expand(included_templates[includedName], options, included_templates)
+              if not expanded then
+                  return nil, "Failed to expand referenced template '"..includedName.."': "..errmsg
+              end
               table.insert(chunk, "-- start included template '" ..includedName.. "'")
               local current_line_num = #chunk
               included[includedName] = {
@@ -532,7 +535,10 @@ local function tload(template, opts, env, included_templates)
     if template == nil then
         return false, {"Null template given to 'tload()'"}
     end
-    local expanded = expand(template, opts, included_templates)
+    local expanded, errmsg = expand(template, opts, included_templates)
+    if not expanded then
+        return false, {"Failed to expand the template", errmsg}
+    end
     local eval_env = env or {}
 
     local compiled, msg = load(table.concat(expanded.code, "\n"), chunk_name_for_luas_load, "t", eval_env)
