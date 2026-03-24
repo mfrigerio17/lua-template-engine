@@ -1,5 +1,5 @@
 ---
--- This modules exposes function(s) to evaluate textual templates, that is,
+-- A module to evaluate textual templates, that is,
 -- text which contain references to variables or expressions, or even Lua code
 -- statements.
 -- For example:
@@ -18,16 +18,19 @@
 -- replaced with the textual representation of `<var>`, which must be
 -- evaluatable in the given environment.
 -- Lines starting with `@` are interpreted entirely as Lua code.
--- For more information and more features see @{syntax_reference.md} and
+-- For more information and more features see the
+-- @{syntax_reference.md|syntax reference} and
 -- the examples.
 --
 -- The module's local functions are for internal use, whereas
--- the "public" module's functions are those documented as `module.<...>`.
+-- the "public" module's functions are those documented as `mAPI.<...>`
+-- ("module's API").
 -- These are the fields of the table you get by `require`ing the module.
 --
 -- @module template-text
 -- @author Marco Frigerio
 
+local mAPI = { VERSION = '0.2.1' }
 
 local function tp(t) for k,v in pairs(t) do print(k,v) end end
 
@@ -46,11 +49,11 @@ end
 --
 -- @param text The destination where the lines will be appended; must be a table
 -- @param lines The source to read the lines from. It must be either an array of
---    strings or a function returning a factory of a suitable iterator; for
---    example a function returning `ipairs(t)`, where `t` is a table of strings
+--  strings or a function returning a factory of a suitable iterator; for
+--  example a function returning `ipairs(t)`, where `t` is a table of strings.
 -- @param totIndent A string that is prepended to every line before copying the
---    line into `text`. Normally a sequence of blanks to get the desired
---    indentation
+--  line into `text`. Normally a sequence of blanks to get the desired
+--  indentation
 --
 -- This function is used internally to implement the table-inclusion syntax
 -- `${aTable}`.
@@ -74,36 +77,6 @@ local insertLines = function(text, lines, totIndent)
   end
 end
 
---- Decorates an existing string iteration, adding an optional prefix and suffix.
--- The first argument must be a function returning an existing iterator
--- generator, such as a `ipairs`.
--- The second and last argument are strings, both optional.
---
--- Sample usage:
---
---    local t = {"a","b","c","d"}
---    for i,v in lineDecorator( function() return ipairs(t) end, "--- ", " ###") do
---      print(i,v)
---    end
---
-local lineDecorator = function(generator, prefix, suffix)
-  local opts = opts or {}
-  local prefix = prefix or ""
-  local suffix = suffix or ""
-  local iter, inv, ctrl = generator( )
-
-  return function()
-    local i, line = iter(inv, ctrl)
-    ctrl = i
-    local retline = ""
-    if line ~= nil then
-      if line ~= "" then
-        retline = prefix .. line .. suffix
-      end
-    end
-    return i, retline -- nil or ""
-  end
-end
 
 
 --- Parses a line from a Lua error message trying to extract the line number and
@@ -307,8 +280,17 @@ end
 
 --- Generates the rendering code from a user template.
 --
--- This is the function that "implements the syntax" of this template
--- engine.
+-- "Expansion" refers to the text-to-text transformation that turns the user's
+-- template into a corresponding Lua program.
+--
+-- This is the function that "implements the syntax" of this template engine,
+-- that is, the function that does parsing and transformation of the replacement
+-- fields.
+--
+-- @param template the text-template, as a string
+-- @param opts see the same argument of `tload`
+-- @param included_templates see the same argument of `tload`
+--
 local function expand(template, opts, included_templates)
     local opts   = opts or {}
     local indent = string.rep(' ', (opts.indent or 0))
@@ -499,9 +481,9 @@ local function expand(template, opts, included_templates)
     end
     table.insert(chunk, "return text")
     return
-    --- An expanded template, resulting from `expand`()
+    --- The return type of `expand`()
     -- @table ExpandedTemplate
-    -- @field source The original template text
+    -- @field source The original template that was expanded
     -- @field code The Lua source code generated from the template, as
     --  an array of strings. This is the code that is run when
     --  "evaluating" the template. Inspecting this is useful for
@@ -519,11 +501,13 @@ local function expand(template, opts, included_templates)
 end
 
 
---- Loads the given text-template and binds it to the given environment.
+--- Loads the given template and binds it to the given environment.
 --
 -- This function produces an object (`LoadResult`) that can be evaluated
--- into the final text. It checks for syntax errors and tries to produce
+-- into the intended text. It checks for syntax errors and tries to produce
 -- precise error messages.
+--
+-- This function is the main entry-point for the module.
 --
 -- @param template the text-template, as a string
 -- @param opts non-mandatory options, a table with these fields:
@@ -542,10 +526,14 @@ end
 --  function to actually evaluate the template into text. In case of errors,
 --  an array of strings with information about the error, including a
 --  line number, when possible.
+-- @return When available, the `ExpandedTemplate` computed from the given one.
 --
--- This function internally calls `expand`() and then Lua's `load`().
+-- This function internally calls `expand`() and then Lua's `load`(). In case
+-- of loading errors (which are typically Lua's syntax errors), the expanded
+-- template is available as the third return value, and can be inspected for
+-- debugging.
 --
-local function tload(template, opts, env, included_templates)
+mAPI.tload = function(template, opts, env, included_templates)
     if template == nil then
         return false, {"Null template given to 'tload()'"}
     end
@@ -586,30 +574,21 @@ end
 
 
 
-
-
-local public_api = {
-
-    --- Loads a template: this is the main function of the module.
-    --
-    -- See the docs of the local function `tload` which has the same
-    -- signature.
-    -- @return `LoadResult`
-    -- @function module.tload
-    tload = tload,
-
-  --- Loads and evaluates the given textual template.
-  --
-  -- This function is provided for convenience and for backwards compatibility
-  -- with the older version of this module.
-  -- It is equivalent to call `tload()` first, and then `evaluate()` on the
-  -- result.
-  -- @return A boolean flag indicating success
-  -- @return The evaluation result (which is normally text). The text of the
-  --   error message if the first return value is false.
-  -- @function module.template_eval
-  template_eval = function(tpl, env, opts, included_templates)
-    local ok, ret = tload(tpl, opts, env, included_templates)
+--- Loads and evaluates the given template.
+--
+-- This function is provided for convenience and for backwards compatibility
+-- with the older version of this module.
+--
+-- It is equivalent to call `tload` first, and then the evaluation function
+-- on the `LoadResult`.
+-- See those functions for a description of the parameters.
+-- Watch out for the different order of `env` and `opts`.
+--
+-- @return A boolean flag indicating success
+-- @return The evaluation result (which is normally text). The text of the
+--   error message if the first return value is false.
+mAPI.template_eval = function(template, env, opts, included_templates)
+    local ok, ret = mAPI.tload(template, opts, env, included_templates)
     if ok then
         ok, ret = ret.evaluate(opts)
     end
@@ -617,19 +596,41 @@ local public_api = {
         ret = table.concat(ret, "\n")
     end
     return ok,ret
-  end,
-
-    --- Adds prefix/suffix to the text produced by an existing iterator.
-    -- @function module.lineDecorator
-    -- @see lineDecorator
-    lineDecorator = lineDecorator,
-
-    expand = expand,
-
-    VERSION = '0.2.1',
-}
+end
 
 
-return public_api
+--- Decorates an existing string iteration, adding an optional prefix and suffix.
+-- The first argument must be a function returning an existing iterator
+-- generator, such as a `ipairs`.
+-- The second and last argument are strings, both optional.
+--
+-- Sample usage:
+--
+--    local t = {"a","b","c","d"}
+--    for i,v in lineDecorator( function() return ipairs(t) end, "--- ", " ###") do
+--      print(i,v)
+--    end
+--
+mAPI.lineDecorator = function(generator, prefix, suffix)
+  local opts = opts or {}
+  local prefix = prefix or ""
+  local suffix = suffix or ""
+  local iter, inv, ctrl = generator( )
+
+  return function()
+    local i, line = iter(inv, ctrl)
+    ctrl = i
+    local retline = ""
+    if line ~= nil then
+      if line ~= "" then
+        retline = prefix .. line .. suffix
+      end
+    end
+    return i, retline -- nil or ""
+  end
+end
+
+
+return mAPI
 
 
