@@ -107,7 +107,7 @@ key: $(k)    value: $(v)
 
 ## Quoting
 
-All the special tokens described so far (except code statements)
+All the special tokens described so far
 can be quoted with a slash to
 prevent expansion. Quoted tokens are copied verbatim in the evaluated
 template. E.g.:
@@ -131,6 +131,10 @@ template. E.g.:
 <tr>
 <td><code>\$&lt;included&gt;</code></td>
 <td><code>$&lt;included&gt;</code></td>
+</tr>
+<tr>
+<td><code>\@ ...</code></td>
+<td><code>@ ...</code></td>
 </tr>
 </tbody>
 </table>
