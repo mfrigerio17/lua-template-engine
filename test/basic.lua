@@ -6,11 +6,11 @@ tplengine = require("template-text")
 local function __check(ok, ret, expected)
     if not ok then
         local errmsg = string.format("Test failed. Template evaluation failed: %s", ret)
-        error(errmsg)
+        error(errmsg, 3)
     end
     if not (expected == ret) then
         local errmsg = string.format("Test failed: '%s' (expected) is not the same as '%s'", expected, ret)
-        error(errmsg)
+        error(errmsg, 3)
     end
 end
 
@@ -32,7 +32,7 @@ local function test_syntax_error(tpl, env)
     if ok then
         local errmsg = string.format("Test failed. Syntax error expected but not raised")
         --print( table.concat(ret.code, "\n") )
-        error(errmsg)
+        error(errmsg, 2)
     end
     return ret, expanded
 end
@@ -42,13 +42,13 @@ local function test_eval_error(tpl, env, linenum)
     local ok,ret = tplengine.tload(tpl, opts, env)
     local erromsg
     if not ok then
-        errmsg = string.format("Test failed. Unexpected syntax error: %s", ret)
-        error(errmsg)
+        errmsg = string.format("Test failed. Unexpected syntax error: %s", table.concat(ret, "\n"))
+        error(errmsg, 2)
     end
     ok,ret = ret.evaluate()
     if ok then
         errmsg = string.format("Test failed. Evaluation error expected but not raised")
-        error(errmsg)
+        error(errmsg, 2)
     else
         --print(table.concat(ret, "\n"))
         if linenum ~= -1 then -- -1 signals not to try to find the line number
