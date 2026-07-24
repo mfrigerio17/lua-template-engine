@@ -425,7 +425,7 @@ local function expand(template, opts, included_templates)
           for text, slashes, expr, argument, index in line:gmatch(varMatch.pattern) do
               slashes = parse_slashes_string(slashes)
               -- append the '\' inserted by the user:
-              text = text .. slashes.actual_chars
+              local text = text .. slashes.actual_chars
 
               -- extract the evaluatable expression, as in "$(<this one>)" or "«<this one>»"
               expression = varMatch.extract_argument(argument)
