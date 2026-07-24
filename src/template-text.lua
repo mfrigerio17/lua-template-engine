@@ -30,7 +30,7 @@
 -- @module template-text
 -- @author Marco Frigerio
 
-local mAPI = { VERSION = '0.2.1' }
+local mAPI = { VERSION = '0.2.2' }
 
 local function tp(t) for k,v in pairs(t) do print(k,v) end end
 
