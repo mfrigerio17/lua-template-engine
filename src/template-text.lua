@@ -96,29 +96,20 @@ end
 -- This function is used internally to implement the table-inclusion syntax
 -- `${aTable}`.
 --
-local insertLines = function(text, lines, indentation, lineFilter)
-  local factory = lines
-  if type(lines) == 'table' then
-    factory = function() return ipairs(lines) end
-  elseif type(lines) ~= 'function' then
-    error("the given argument must be a table or an iterator factory (was " .. type(lines) .. ")", 2)
-  end
-    local iter = factory()
+local insertLines = function(text, src_lines, src_indentation, indentation, line_filter)
+    local iterfactory = src_lines
+    if type(src_lines) == 'table' then
+        iterfactory = ipairs
+    elseif type(src_lines) ~= 'function' then
+        error("source data must be a table or an iterator factory (was " .. type(src_lines) .. ")", 2)
+    end
+    iterfactory = mAPI.lineDecorator(iterfactory, {prefix=src_indentation})
 
-    -- When 'lines' is empty, attempt to add a line anyway, to preserve the line
-    -- where the table itself was included (as in "${IamEmpty}").
-    -- Otherwise, just unroll the table content.
-    -- In both cases
-    --  . never add indentation for lines that are empty to start with
-    --  . rely on 'appendLine' to decide on empty lines
-
-    if iter(lines,0) == nil then
-        appendLine(text, "", lineFilter)
-    else
-        for i, line in factory() do
-            if line~="" then line = indentation .. line end
-            appendLine(text, line, lineFilter)
-        end
+    -- - never add indentation for lines that are empty to start with
+    -- - rely on 'appendLine' to decide on empty lines
+    for i, line in iterfactory(src_lines) do
+        if line~="" then line = indentation .. line end
+        appendLine(text, line, line_filter)
     end
 end
 
@@ -289,11 +280,11 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         appendLine(dest, textline, lineFilter)
     end
 
-    env.__insertLines = function(dest, src, src_identifier, indent)
+    env.__insertLines = function(dest, src, src_identifier, src_indent, glob_indent)
         if src==nil then
             error(string.format("'%s' is undefined in the current environment", src_identifier), 2)
         end
-        insertLines(dest, src, indent, lineFilter)
+        insertLines(dest, src, src_indent, glob_indent, lineFilter)
     end
 
     local ok, ret = xpcall(raw_eval_f, errHandler)
@@ -466,8 +457,8 @@ local function expand(template, opts, included_templates)
                   -- regardless of options. Trailing spaces are dropped.
                   lineOfCode = string.format("table.insert(text, %q)", indent .. tableIndent)
               else
-                  lineOfCode = string.format("__insertLines(text, %s, %q, %q)",
-                      tableVarName, tableVarName, indent..tableIndent)
+                  lineOfCode = string.format("__insertLines(text, %s, %q, %q, %q)",
+                      tableVarName, tableVarName, tableIndent, indent)
               end
               goto line_parsed
           end
