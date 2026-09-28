@@ -5,4 +5,5 @@ dofile("shared_env.lua")
 dofile("errors.lua")
 dofile("line_decorator.lua")
 dofile("blanks.lua")
+dofile("table_consistency.lua")
 
