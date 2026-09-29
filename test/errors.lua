@@ -29,6 +29,27 @@ ret1,ret2 = test_common.dotest_expect_load_error(engine, case)
 
 
 
+case = {
+    id = "undefined_replacement_field",
+    desc = "referencing an expression which is undefined in the current environment should lead to an evaluation error",
+    tpl = [[$(undefined)]],
+    env = {},
+}
+ret1, ret2 = test_common.dotest_expect_eval_error(engine, case)
+-- print the error message to double check it is meaningful
+-- print(table.concat(ret2, "\n"))
+
+
+case = {
+    id = "undefined_table",
+    desc = "referencing a table which is undefined in the current environment should lead to an evaluation error",
+    tpl = [[${undefined}]],
+    env = {},
+}
+ret1, ret2 = test_common.dotest_expect_eval_error(engine, case)
+-- print the error message to double check it is meaningful
+-- print(table.concat(ret2, "\n"))
+
 -- -------------------------------------------------------------------------- --
 -- this one checks on error reporting in the case of the template inclusion,
 -- with multiple levels of inclusion.
@@ -126,8 +147,5 @@ Calling g("arg"): $(g("arg"))
 ret1, ret2 = test_common.dotest_expect_eval_error(engine, case)
 -- print the error message to double check it is meaningful
 -- print(table.concat(ret2, "\n"))
-
-
-
 
 

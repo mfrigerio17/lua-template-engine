@@ -272,10 +272,10 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
     env.table  = (env.table or table)
     env.pairs  = (env.pairs or pairs)
     env.ipairs = (env.ipairs or ipairs)
-    env.__str = function(arg, arg_identifier_in_caller)
+    env.__str = function(arg, arg_identifier)
         if arg==nil then
-            local expr_name = arg_identifier_in_caller or "<??>"
-            error(string.format("Expression '%s' is undefined in the current environment", expr_name), 2)
+            local expr_name = arg_identifier or "<??>"
+            error(string.format("'%s' is undefined in the current environment", expr_name), 2)
         end
         local text = mytostring(arg)
         if type(text) ~= "string" then
@@ -289,9 +289,9 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         appendLine(dest, textline, lineFilter)
     end
 
-    env.__insertLines = function(dest, src, indent)
-        if src == nil then
-            error("nil argument given", 2)
+    env.__insertLines = function(dest, src, src_identifier, indent)
+        if src==nil then
+            error(string.format("'%s' is undefined in the current environment", src_identifier), 2)
         end
         insertLines(dest, src, indent, lineFilter)
     end
@@ -466,8 +466,8 @@ local function expand(template, opts, included_templates)
                   -- regardless of options. Trailing spaces are dropped.
                   lineOfCode = string.format("table.insert(text, %q)", indent .. tableIndent)
               else
-                  lineOfCode = string.format("__insertLines(text, %s, %q)",
-                      tableVarName, indent..tableIndent)
+                  lineOfCode = string.format("__insertLines(text, %s, %q, %q)",
+                      tableVarName, tableVarName, indent..tableIndent)
               end
               goto line_parsed
           end
