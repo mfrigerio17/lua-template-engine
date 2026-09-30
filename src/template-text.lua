@@ -599,34 +599,61 @@ mAPI.template_eval = function(template, env, opts, included_templates)
 end
 
 
---- Decorates an existing string iteration, adding an optional prefix and suffix.
--- The first argument must be a function returning an existing iterator
--- generator, such as a `ipairs`.
--- The second and last argument are strings, both optional.
+--- Decorates an existing ordered iterator returning strings
+
+-- @param iterator_f an iterator factory, such as `ipairs`. This must be a
+--   function that returns an ordered iterator of strings, that is, one
+--   whose first return value is an increasing integer index, and whose
+--   second one is a string.
+--   `iterator_f` will be called internally with a single argument, the
+--   data source. However, `iterator_f` may well be a closure over some
+--   existing data and ignore the argument. The decoration should still
+--   work.
+-- @param options non-mandatory options that determine the decoration:
+--  @param options.prefix a string that will be prepended to all the
+--     items returned by the original iterator
+--  @param options.suffix a string appended to all the items
+--  @param options.filter a function taking a source item a returning
+--     a boolean; when false, the item will be skipped.
+-- Filtering is performed _before_ adding the prefix/suffix.
+-- @return a new iterator-factory function that takes a single argument,
+--   the data source which will be given to the decorated factory
 --
 -- Sample usage:
 --
 --    local t = {"a","b","c","d"}
---    for i,v in lineDecorator( function() return ipairs(t) end, "--- ", " ###") do
+--    local myiter = lineDecorator(ipairs, {prefix="--- ", suffix=" ###"} )
+--    for i,v in myiter(t) do
 --      print(i,v)
 --    end
 --
-mAPI.lineDecorator = function(generator, prefix, suffix)
-  local opts = opts or {}
-  local prefix = prefix or ""
-  local suffix = suffix or ""
-  local iter, inv, ctrl = generator( )
+mAPI.lineDecorator = function(iterator_f, options)
+  local opts   = options or {}
+  local prefix = opts.prefix or ""
+  local suffix = opts.suffix or ""
+  local filter = opts.filter or function(line) return true end
 
-  return function()
-    local i, line = iter(inv, ctrl)
-    ctrl = i
-    local retline = ""
-    if line ~= nil then
-      if line ~= "" then
-        retline = prefix .. line .. suffix
+  return function(src_data)
+  local iter, invariant, i = iterator_f(src_data)
+  local k = 0
+
+  local myiter = function()
+    local line, processed = nil
+    while (not processed) and i do
+      i, line = iter(invariant, i)
+      if i and line then
+        if filter(line) then
+          k = k + 1
+          processed = prefix..line..suffix
+        end
+      else
+        k = nil
       end
     end
-    return i, retline -- nil or ""
+    return k, processed
+  end
+
+  return myiter, invariant, i
   end
 end
 
