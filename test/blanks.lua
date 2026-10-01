@@ -258,14 +258,6 @@ dotest( {
 } )
 
 
--- Relative indentation of a table-inclusion is treated the same way as the
--- indent option of template expansion: it is never prepended if the line would
--- be empty otherwise, regardless of options.
--- So it is ignored for empty lines in the included table, and also for the
--- special case of an empty table in the first place.
--- This makes an empty table different than an empty field (where leading blanks
--- are preserved/dropped depending on the user's options).
-
 env.empty_table={}
 
 local tpl_with_empty_table = [[
@@ -275,31 +267,21 @@ consectetur adipiscing elit
 ]]
 
 dotest( {
-    id = "table-indentation-not-applied-1",
-    desc = "the indentation of an included empty table does not yield to trailing blanks",
+    id = "empty-table-1",
+    desc = "an empty table evaluates to nothing, regardless the initial indentation",
     tpl = tpl_with_empty_table,
-    expected = expected_with_empty,
+    expected = expected_with_no_empty,
     env = env,
     opts = {},
 } )
 
 dotest( {
-    id = "table-indentation-not-applied-2",
-    desc = "the indentation of an included empty table does not yield to trailing blanks, even with the option to preserve the blank characters",
-    tpl = tpl_with_empty_table,
-    expected = expected_with_empty,
-    env = env,
-    opts = { preserve={blank=true} },
-} )
-
-
-dotest( {
-    id = "exclude-blank-line",
-    desc = "an included empty table with leading spaces is completely dropped, when options say so",
+    id = "empty-table-2",
+    desc = "an empty table evaluates to nothing, regardless the initial indentation and the preserve options",
     tpl = tpl_with_empty_table,
     expected = expected_with_no_empty,
     env = env,
-    opts = { preserve={empty=false} },
+    opts = { preserve={blank=true,empty=true} },
 } )
 
 
@@ -391,12 +373,10 @@ First line
   table line 1
       
   table line 3
-
+  
   table line 5
 Last line
-]],
--- Note that table-line-2 has blanks: the original indentation plus the line content.
--- On the other hand line-4 has nothing: the indentation is never added to empty lines.
+]], -- the blank lines have the original spaces (including 0 spaces), plus the table indentation
     env = env,
     opts = { preserve={blank=true, empty=true} },
 } )
@@ -431,47 +411,37 @@ Last line
 -- must be preserved (because if the user does not want them, he/she can just
 -- avoid them in the first place)
 
-tpl = [[
-$(empty)
-
-AA
-]]
-
-expected = [[
-
-AA
-]]
-
 dotest( {
     id = "drop-expanded-empty-lines-but-preserve-static-ones",
     desc = "empty lines in the source template are always preserved",
-    tpl = tpl,
-    expected = expected,
+    tpl = [[
+$(empty)
+
+AA
+]],
+    expected = [[
+
+AA
+]],
     env = env,
     opts = { preserve={blank=false, empty=false} },
 } )
-
-tpl = [[
-Line 1
-
-  ${empty_table}
-    
-The line above has 4 blank characters
-]]
-
-expected = [[
-Line 1
-
-    
-The line above has 4 blank characters
-]]
 
 
 dotest( {
     id = "drop-expanded-empty-tables-but-preserve-static-ones",
     desc = "empty lines in the source template are always preserved",
-    tpl = tpl,
-    expected = expected,
+    tpl = [[
+Line 1
+  ${{}}
+    
+The line above has 4 blank characters
+]],
+    expected = [[
+Line 1
+    
+The line above has 4 blank characters
+]],
     env = env,
     opts = { preserve={blank=false, empty=false} },
 } )
