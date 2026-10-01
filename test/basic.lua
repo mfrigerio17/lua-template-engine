@@ -118,6 +118,10 @@ test_basic("${oneliner}", "a single line", {oneliner={"a single line"}})
 -- any valid Lua expression that evaluates to a table should work
 test_basic("${nest.ed}", "a single line", { nest={ed={"a single line"}} })
 test_basic("${f()}", "a single line", { f= function() return {"a single line"} end })
+test_basic("${{}}", "", {} )
+test_basic("${{'one line'}}", "one line", {} )
+
+test_basic("   ${iter_factory}", "   line 1", { iter_factory = function() return ipairs({"line 1"}) end } )
 
 -- This will casuse a syntax error because it will use the identifier "aa ${bb" !!
 -- Only one table-expansion per line is allowed
