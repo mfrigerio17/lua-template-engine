@@ -77,9 +77,13 @@ local function lineFilterFactory(dopreserve)
     end
 end
 
-local function appendLine(dest, line, filter)
+local function appendLine(dest, line, filter, global_indentation)
     line = filter(line)
-    if line then table.insert(dest, line) end
+    if line then
+        -- never add the indentation option for lines that are empty to start with
+        if line~="" then line = global_indentation .. line end
+        table.insert(dest, line)
+    end
 end
 
 
@@ -105,11 +109,9 @@ local insertLines = function(text, src_lines, src_indentation, indentation, line
     end
     iterfactory = mAPI.lineDecorator(iterfactory, {prefix=src_indentation})
 
-    -- - never add indentation for lines that are empty to start with
-    -- - rely on 'appendLine' to decide on empty lines
+    -- Rely on 'appendLine' to decide on empty lines and indentation
     for i, line in iterfactory(src_lines) do
-        if line~="" then line = indentation .. line end
-        appendLine(text, line, line_filter)
+        appendLine(text, line, line_filter, indentation)
     end
 end
 
@@ -276,8 +278,8 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
     end
     local lineFilter = lineFilterFactory(opts.preserve)
 
-    env.__put = function(dest, textline)
-        appendLine(dest, textline, lineFilter)
+    env.__put = function(dest, textline, glob_indent)
+        appendLine(dest, textline, lineFilter, glob_indent)
     end
 
     env.__insertLines = function(dest, src, src_identifier, src_indent, glob_indent)
@@ -503,10 +505,7 @@ local function expand(template, opts, included_templates)
             -- Concatenate the subexpressions into a single one, prepending the
             -- indentation if it is not empty.
             expression = table.concat(subexpr, ' .. ')
-            if indent ~= "" then
-              expression = string.format("%q .. %s", indent, expression)
-            end
-            lineOfCode = "__put(text, " .. expression .. ")"
+            lineOfCode = string.format("__put(text, %s, %q)", expression, indent)
           else
               -- No match of any '$()', we just add the whole line as it is.
               -- There is no need to defer to evaluation time the concatenation
