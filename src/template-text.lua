@@ -657,9 +657,13 @@ end
 --- Decorates an existing ordered iterator returning strings
 
 -- @param iterator_f an iterator factory, such as `ipairs`. This must be a
---   function that takes an argument and returns an ordered iterator
---   of strings, that is, one whose first return value is an increasing integer
---   index, and whose second one is a string
+--   function that returns an ordered iterator of strings, that is, one
+--   whose first return value is an increasing integer index, and whose
+--   second one is a string.
+--   `iterator_f` will be called internally with a single argument, the
+--   data source. However, `iterator_f` may well be a closure over some
+--   existing data and ignore the argument. The decoration should still
+--   work.
 -- @param options non-mandatory options that determine the decoration:
 --  @param options.prefix a string that will be prepended to all the
 --     items returned by the original iterator

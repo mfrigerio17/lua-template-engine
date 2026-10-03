@@ -57,3 +57,19 @@ dotest({
     opts = {filter=function(s) return not s:match('*A') end},
 })
 
+
+dotest({
+    id = "original-iterator-factory-is-a-closure-on-data",
+    src = nil, -- this could be anything, it will be ignored anyway
+    original_iter = function() return ipairs({"AAA", "BBB"}) end,
+    expected = {"AAA","BBB"},
+})
+
+
+dotest({
+    id = "original-iterator-factory-is-a-closure-on-data-2",
+    src = nil, -- this could be anything, it will be ignored anyway
+    original_iter = function() return ipairs({"AAA", "BBB"}) end,
+    expected = {"AAA-->","BBB-->"},
+    opts = {suffix="-->"},
+})
