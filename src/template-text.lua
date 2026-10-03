@@ -87,19 +87,20 @@ local function appendLine(dest, line, filter, global_indentation)
 end
 
 
---- Copy every line of text in the second argument and append it into the first
---
--- @param text The destination where the lines will be appended; must be a table
--- @param lines The source to read the lines from. It must be either an array of
---  strings or a function returning a factory of a suitable iterator; for
---  example a function returning `ipairs(t)`, where `t` is a table of strings.
--- @param indentation A string that is prepended to every line before copying the
---  line into `text`. Normally a sequence of blanks to get the desired
---  indentation
+--- Append every line of text in the second argument into the first
 --
 -- This function is used internally to implement the table-inclusion syntax
 -- `${aTable}`.
 --
+-- @param text The destination where the lines will be appended; must be a table
+-- @param src_lines The source data. It must be either an array of
+--  strings or an ordered-iterator factory; for
+--  example a function returning `ipairs(t)`, where `t` is a table of strings.
+-- @param indentation A string that is prepended to every line before copying the
+--  line into `text`. Normally a sequence of blanks to get the desired
+--  indentation.
+-- @param line_filter The filter function forwarded to `appendLine`, which
+--  is used on each input line.
 local insertLines = function(text, src_lines, src_indentation, indentation, line_filter)
     local iterfactory = src_lines
     if type(src_lines) == 'table' then
@@ -107,9 +108,8 @@ local insertLines = function(text, src_lines, src_indentation, indentation, line
     elseif type(src_lines) ~= 'function' then
         error("source data must be a table or an iterator factory (was " .. type(src_lines) .. ")", 2)
     end
-    iterfactory = mAPI.lineDecorator(iterfactory, {prefix=src_indentation})
 
-    -- Rely on 'appendLine' to decide on empty lines and indentation
+    iterfactory = mAPI.lineDecorator(iterfactory, {prefix=src_indentation})
     for i, line in iterfactory(src_lines) do
         appendLine(text, line, line_filter, indentation)
     end
