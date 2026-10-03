@@ -154,8 +154,9 @@ dotest( {
 
 
 
--- On the indentation option
--- Programmed indentation is never prepended to empty lines
+-- On the indentation option at evaluation time.
+-- The global indentation set in the options, is never prepended to lines
+-- that evaluate to empty, regardless the preserve-blanks option.
 
 dotest( {
     id = "indent-option-not-on-empty-1",
@@ -171,12 +172,27 @@ AA
       BB
 ]],
     env = env,
-    opts = { preserve={blank=true, empty=false}, indent=4 },
+    opts = { preserve={blank=true}, indent=4 },
 -- note that the middle line does _not_ have the 4 spaces
 } )
 
 dotest( {
     id = "indent-option-not-on-empty-2",
+    desc = "the global indentation is not applied to lines that evaluate to the empty line, even with the preserve-blanks option",
+    tpl = [[
+AA
+$()
+]],
+    expected = [[
+   AA
+
+]], -- note no indentation spaces in the second line
+    env = env,
+    opts = { preserve={blank=true, empty=true}, indent=3 },
+} )
+
+dotest( {
+    id = "indent-option-not-on-empty-3",
     desc = "the indentation in the options is not prepended to lines that expand to the empty line",
     tpl = [[
 AA
@@ -191,6 +207,7 @@ AA
     env = env,
     opts = { preserve={blank=false, empty=true}, indent=4 },
 } )
+
 
 dotest( {
     id = "indent-option-2",
