@@ -115,6 +115,8 @@ test_basic("${f()}", "a single line", { f= function() return {"a single line"} e
 test_basic("${{}}", "", {} )
 test_basic("${{'one line'}}", "one line", {} )
 
+test_basic("   ${iter_factory}", "   line 1", { iter_factory = function() return ipairs({"line 1"}) end } )
+
 -- This will casuse a syntax error because it will use the identifier "aa ${bb" !!
 -- Only one table-expansion per line is allowed
 test_syntax_error("${aa} ${bb}", {}, 1)
