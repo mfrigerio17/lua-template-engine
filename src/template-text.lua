@@ -43,7 +43,42 @@ local function lines(s)
 end
 
 
-local function appendLine(dest, line, global_indentation)
+local function filterEmpty(line)
+    if line=="" then return nil end
+    return line
+end
+
+local function filterBlank(line)
+    if (line:match("^%s+$")) then return "" end
+    return line
+end
+
+local function filterBlankAndEmpty(line)
+    if (line:match("^%s*$")) then return nil end
+    return line
+end
+
+local function lineFilterFactory(dopreserve)
+    local preserve = dopreserve or {empty=true, blank=true}
+    if preserve.blank==nil then preserve.blank = true end
+    if preserve.empty==nil then preserve.empty = true end
+
+    if preserve.blank then
+        if preserve.empty then
+            return function(line) return line end
+        else
+            return filterEmpty
+        end
+    elseif preserve.empty then
+        -- DONT preserve blanks, DO preserve empties
+        return filterBlank
+    else
+        return filterBlankAndEmpty
+    end
+end
+
+local function appendLine(dest, line, global_indentation, filter)
+    line = filter(line)
     if line then
         -- never add the indentation option for lines that are empty to start with
         if line~="" then line = global_indentation .. line end
@@ -64,7 +99,9 @@ end
 -- @param indentation A string that is prepended to every line before copying the
 --  line into `text`. Normally a sequence of blanks to get the desired
 --  indentation.
-local insertLines = function(text, src_lines, src_indentation, indentation)
+-- @param line_filter The filter function forwarded to `appendLine`, which
+--  is used on each input line.
+local insertLines = function(text, src_lines, src_indentation, indentation, line_filter)
     local iterfactory = src_lines
     if type(src_lines) == 'table' then
         iterfactory = ipairs
@@ -74,7 +111,7 @@ local insertLines = function(text, src_lines, src_indentation, indentation)
 
     iterfactory = mAPI.lineDecorator(iterfactory, {prefix=src_indentation})
     for i, line in iterfactory(src_lines) do
-        appendLine(text, line, indentation)
+        appendLine(text, line, indentation, line_filter)
     end
 end
 
@@ -239,16 +276,17 @@ local function evaluate(raw_eval_f, template, env, opts, env_override)
         end
         return text
     end
+    local lineFilter = lineFilterFactory(opts.preserve)
 
     env.__put = function(dest, textline, glob_indent)
-        appendLine(dest, textline, glob_indent)
+        appendLine(dest, textline, glob_indent, lineFilter)
     end
 
     env.__insertLines = function(dest, src, src_identifier, src_indent, glob_indent)
         if src==nil then
             error(string.format("'%s' is undefined in the current environment", src_identifier), 2)
         end
-        insertLines(dest, src, src_indent, glob_indent)
+        insertLines(dest, src, src_indent, glob_indent, lineFilter)
     end
 
     local ok, ret = xpcall(raw_eval_f, errHandler)
